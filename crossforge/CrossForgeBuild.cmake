@@ -22,14 +22,14 @@ set(Optimization_Flag "-O2")
 include(FetchContent)
 ## download and install pmp
 
-FIND_PACKAGE(RPLY CONFIG REQUIRED)
-FetchContent_Declare(
-	rply 
-	GIT_REPOSITORY https://github.com/diegonehab/rply.git
-	GIT_TAG v1.1.4
-)
-FetchContent_MakeAvailable(rply)
-include_directories(${rply_SOURCE_DIR}/)
+#FIND_PACKAGE(RPLY CONFIG REQUIRED)
+#FetchContent_Declare(
+#	rply 
+#	GIT_REPOSITORY https://github.com/diegonehab/rply.git
+#	GIT_TAG v1.1.4
+#)
+#FetchContent_MakeAvailable(rply)
+#include_directories(${rply_SOURCE_DIR}/)
 
 FetchContent_Declare(
 	pmp 
