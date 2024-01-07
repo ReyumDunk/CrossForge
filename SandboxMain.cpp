@@ -23,6 +23,7 @@
 #include <Examples/ExampleShapesAndMaterials.hpp>
 #include <Examples/ExampleTextRendering.hpp>
 #include <Examples/ExampleLighting.hpp>
+#include <Examples/HairModelGen.hpp>
 
 using namespace CForge;
 using namespace Eigen;
@@ -40,6 +41,7 @@ using namespace Eigen;
 //#define ActiveScene ExampleMultiViewport
 //#define ActiveScene ExampleSocket
 
+#define ActiveScene HairModelGen
 
 ActiveScene* pScene = nullptr;
 

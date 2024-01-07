@@ -17,8 +17,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 option(USE_OPENCV "Include OpenCV in build" OFF)
 set(Optimization_Flag "-O2")
 
-#[[
+#FIND_PACKAGE(rply CONFIG REQUIRED )
+
+include(FetchContent)
 ## download and install pmp
+
+FIND_PACKAGE(RPLY CONFIG REQUIRED)
+FetchContent_Declare(
+	rply 
+	GIT_REPOSITORY https://github.com/diegonehab/rply.git
+	GIT_TAG v1.1.4
+)
+FetchContent_MakeAvailable(rply)
+include_directories(${rply_SOURCE_DIR}/)
+
 FetchContent_Declare(
 	pmp 
 	GIT_REPOSITORY https://github.com/pmp-library/pmp-library.git
@@ -30,7 +42,17 @@ set(PMP_BUILD_EXAMPLES OFF CACHE INTERNAL "Build the PMP examples")
 set(PMP_BUILD_TESTS OFF CACHE INTERNAL "Build the PMP test programs")
 set(PMP_BUILD_DOCS OFF CACHE INTERNAL "Build the PMP documentation")
 set(PMP_BUILD_VIS OFF CACHE INTERNAL "Build the PMP visualization tools")
-set(PMP_INSTALL OFF CACHE INTERNAL "Install the PMP library and headers")
+#set(PMP_INSTALL OFF CACHE INTERNAL "Install the PMP library and headers")
+include_directories(${pmp_SOURCE_DIR}/src/)
+
+#[[
+FetchContent_Declare(
+	ndsplines 
+	GIT_REPOSITORY https://github.com/loco-3d/ndcurves.git
+	GIT_TAG v1.3.0
+)
+FetchContent_MakeAvailable(ndsplines)
+include_directories(${ndsplines_SOURCE_DIR}/include/)
 ]]
 
 include(FetchContent)
@@ -261,7 +283,7 @@ elseif(WIN32)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W1 -wd4251")
 add_compile_definitions(CFORGE_EXPORTS)
 target_link_libraries(crossforge 
-	PRIVATE Eigen3::Eigen
+#	PRIVATE Eigen3::Eigen
 	PRIVATE glfw 
 	PRIVATE glad::glad
 	PRIVATE assimp::assimp

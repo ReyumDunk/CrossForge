@@ -24,6 +24,27 @@ file(MAKE_DIRECTORY "Prototypes/Shader")
 #################################################################
 project (CForgeSandbox)
 
+## download and install pmp
+
+
+
+#[[
+FetchContent_Declare(
+	pmp 
+	GIT_REPOSITORY https://github.com/pmp-library/pmp-library.git
+	GIT_TAG 2.0.1
+)
+FetchContent_MakeAvailable(pmp)
+set(PMP_BUILD_APPS OFF CACHE INTERNAL "Build the PMP applications")
+set(PMP_BUILD_EXAMPLES OFF CACHE INTERNAL "Build the PMP examples")
+set(PMP_BUILD_TESTS OFF CACHE INTERNAL "Build the PMP test programs")
+set(PMP_BUILD_DOCS OFF CACHE INTERNAL "Build the PMP documentation")
+set(PMP_BUILD_VIS OFF CACHE INTERNAL "Build the PMP visualization tools")
+set(PMP_INSTALL OFF CACHE INTERNAL "Install the PMP library and headers")
+include_directories(${pmp_SOURCE_DIR}/src/)
+]]
+
+
 if(EMSCRIPTEN)
 	include(FetchContent)
 	
@@ -55,8 +76,10 @@ if(EMSCRIPTEN)
 	set(CMAKE_EXECUTABLE_SUFFIX .html)
 else()
 # Additional packages not alreday included in the core library
+#FIND_PACKAGE(fcl CONFIG REQUIRED)
 FIND_PACKAGE(tinyxml2 CONFIG REQUIRED)	# support for xml loading, storing, and processing
 FIND_PACKAGE(imgui CONFIG REQUIRED) # dear-imgui
+FIND_PACKAGE(rply CONFIG REQUIRED )
 endif()
 
 
@@ -88,6 +111,11 @@ elseif(WIN32)
 	PRIVATE glad::glad
 	ws2_32
 	PRIVATE tinyxml2::tinyxml2
+	PRIVATE pmp 
+	PRIVATE rply
+#	PRIVATE ndsplines
+#	PRIVATE fcl
+#	${FREETYPE_LIBRARIES}
 	PRIVATE imgui::imgui
 	${FREETYPE_LIBRARIES}
 
@@ -103,6 +131,7 @@ elseif(__arm__)
 #		PRIVATE assimp
 		PRIVATE gpiod
 		PRIVATE dl	
+		PRIVATE fcl
 		)
 elseif(UNIX)
 	target_link_libraries(CForgeSandbox 
@@ -115,6 +144,8 @@ elseif(UNIX)
 		PRIVATE dl	
 		)
 endif()
+
+target_compile_options(CForgeSandbox PRIVATE /bigobj)
 
 #copy shaders
 add_custom_command(
