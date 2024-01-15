@@ -79,7 +79,7 @@ else()
 #FIND_PACKAGE(fcl CONFIG REQUIRED)
 FIND_PACKAGE(tinyxml2 CONFIG REQUIRED)	# support for xml loading, storing, and processing
 FIND_PACKAGE(imgui CONFIG REQUIRED) # dear-imgui
-FIND_PACKAGE(rply CONFIG REQUIRED )
+#FIND_PACKAGE(rply CONFIG REQUIRED )
 endif()
 
 

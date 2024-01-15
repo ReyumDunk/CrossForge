@@ -50,3 +50,4 @@ Documentation/Doc/
 Documentation/Doxywarnings.txt
 
 CMakeSettings.json
+CMakePresets.json
