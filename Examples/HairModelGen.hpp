@@ -213,12 +213,22 @@ namespace CForge {
 			// load skydome and a scalp
 			T3DMesh<float> M, Scalp;
 			
-
+			/*
 			SAssetIO::load("Assets/ExampleScenes/SimpleSkydome.glb", &M);
 			setMeshShader(&M, 0.8f, 0.04f);
 			M.computePerVertexNormals();
 			m_Skydome.init(&M);
 			M.clear();
+			*/
+			/// gather textures for the skyboxes
+			m_ClearSky.push_back("Assets/ExampleScenes/skybox/vz_clear_right.png");
+			m_ClearSky.push_back("Assets/ExampleScenes/skybox/vz_clear_left.png");
+			m_ClearSky.push_back("Assets/ExampleScenes/skybox/vz_clear_up.png");
+			m_ClearSky.push_back("Assets/ExampleScenes/skybox/vz_clear_down.png");
+			m_ClearSky.push_back("Assets/ExampleScenes/skybox/vz_clear_back.png");
+			m_ClearSky.push_back("Assets/ExampleScenes/skybox/vz_clear_front.png");
+
+			m_Skybox.init(m_ClearSky[0], m_ClearSky[1], m_ClearSky[2], m_ClearSky[3], m_ClearSky[4], m_ClearSky[5]);
 
 			SAssetIO::load("MyAssets/sphere.obj", &Scalp);
 			setMeshShader(&Scalp, 0.1f, 0.04f);
@@ -238,9 +248,16 @@ namespace CForge {
 			m_RootSGN.init(nullptr);
 			m_SG.init(&m_RootSGN);
 
-			// add skydome
-			m_SkydomeSGN.init(&m_RootSGN, &m_Skydome);
-			m_SkydomeSGN.scale(Vector3f(50.0f, 50.0f, 50.0f));
+			// add skybox
+			// set initialize color adjustment values
+			m_Skybox.brightness(1.15f);
+			m_Skybox.contrast(1.1f);
+			m_Skybox.saturation(1.2f);
+
+			// create scene graph for the Skybox
+			m_SkyboxTransSGN.init(nullptr);
+			m_SkyboxGeomSGN.init(&m_SkyboxTransSGN, &m_Skybox);
+			m_SkyboxSG.init(&m_SkyboxTransSGN);
 
 			// add scalp
 			m_HeadTransformSGN.init(&m_RootSGN, Vector3f(0.0f, 1.5f, 0.0f));
@@ -316,16 +333,23 @@ namespace CForge {
 		void mainLoop(void)override {
 			m_RenderWin.update();
 			m_SG.update(60.0f / m_FPS);
+			m_SkyboxSG.update(60.0f / m_FPS);
 
 			defaultCameraUpdate(&m_Cam, m_RenderWin.keyboard(), m_RenderWin.mouse());
 
 			m_RenderDev.activePass(RenderDevice::RENDERPASS_SHADOW, &m_Sun);
+			m_RenderDev.activeCamera((VirtualCamera*)m_Sun.camera());
 			m_SG.render(&m_RenderDev);
 
 			m_RenderDev.activePass(RenderDevice::RENDERPASS_GEOMETRY);
+			m_RenderDev.activeCamera(&m_Cam);
 			m_SG.render(&m_RenderDev);
 
 			m_RenderDev.activePass(RenderDevice::RENDERPASS_LIGHTING);
+
+			m_RenderDev.activePass(RenderDevice::RENDERPASS_FORWARD, nullptr, false);
+			// Skybox should be last thing to render
+			m_SkyboxSG.render(&m_RenderDev);
 
 			m_RenderWin.swapBuffers();
 
@@ -345,12 +369,15 @@ namespace CForge {
 
 		// Scene Graph
 		SGNTransformation m_RootSGN;
-		SGNGeometry m_SkydomeSGN;
+		SceneGraph m_SkyboxSG;
+		SGNTransformation m_SkyboxTransSGN;
+		SGNGeometry m_SkyboxGeomSGN;
 		SGNGeometry m_ScalpSGN;
 		SGNTransformation m_ScalpTransformSGN;
 		SGNTransformation m_HeadTransformSGN;
 
-		StaticActor m_Skydome;
+		vector<string> m_ClearSky;
+		SkyboxActor m_Skybox;
 		StaticActor m_Scalp;
 
 		StaticActor m_Test;
