@@ -51,7 +51,7 @@ namespace CForge {
 			return (v1.z() < v2.z());
 		}
 
-		/*
+		/* pmp usage
 		vector<Vector3f> getStartpoints(CForge::T3DMesh<float> *scalp, SurfaceMesh& surfaceScalp, Vector2f partingXY, int pointNumber = 10) {
 			vector<Vector3f> startPoints;
 			auto points = surfaceScalp.get_vertex_property<Point>("v:point");
@@ -147,6 +147,7 @@ namespace CForge {
 			}
 
 			if (minZ != maxZ) {
+				printf("%d %d\n", minZ, maxZ);
 				int num_v = scalp->vertexCount();
 				int source = minZ;
 				set<int> targets = { maxZ };
@@ -154,11 +155,16 @@ namespace CForge {
 				VectorXi previous(num_v);
 				igl::dijkstra(source, targets, adjacencyList, min_d, previous);
 				vector<int> path;
+				printf("previous: %d\n", previous.size());
 				igl::dijkstra(maxZ, previous, path);
 
 				//TODO calculate geodesic distance
-
+				
 				//read positions Vector3f
+				printf("Pathindices:\n");
+				for (auto i : path){
+					printf("%d", i);
+				}
 				vector<Vector3f> pathV;
 
 				for (auto i : path) {
@@ -286,6 +292,7 @@ namespace CForge {
 			}
 			vector<vector<int>> adjList;
 			igl::adjacency_list(faceListIndex, adjList);
+			printf("%d, %d \n", Scalp.vertexCount(), adjList.size());
 			startPoints = getStartpoints(&Scalp, vertexList, adjList, partingXY, stripNumber);
 
 			m_TestGroupSGN.init(&m_HeadTransformSGN);
