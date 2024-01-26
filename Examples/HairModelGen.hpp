@@ -18,7 +18,6 @@
 #ifndef __CFORGE_HAIRMODELGEN_HPP__
 #define __CFORGE_HAIRMODELGEN_HPP__
 #define M_PI EIGEN_PI
-
 #include "ExampleSceneBase.hpp"
 /*
 #include "pmp/algorithms/SurfaceGeodesic.cpp"
@@ -29,6 +28,7 @@
 #include "igl/adjacency_list.h"
 #include "igl/readMESH.h"
 #include "igl/writeMESH.h"
+#include "tinynurbs/tinynurbs.h"
 
 using namespace Eigen;
 using namespace std;
@@ -47,7 +47,7 @@ namespace CForge {
 			clear();
 		}//Destructor
 
-		bool compareVectorZ(Vector3f v1, Vector3f v2) {
+		static bool compareVectorZ(const Vector3f &v1, const Vector3f &v2) {
 			return (v1.z() < v2.z());
 		}
 
@@ -118,6 +118,7 @@ namespace CForge {
 		*/
 
 		vector<Vector3f> getStartpoints(CForge::T3DMesh<float>* scalp, vector<Vector3f> &vertexList, vector<vector<int>> &adjacencyList, Vector2f partingXY, int pointNumber = 10) {
+			//TODO change Vector3f vertex representation to index rep.
 			vector<Vector3f> startPoints;
 			//get all Vertices with x ~ partingX and y >= partingY
 			vector<int> sampleVertices;
@@ -185,14 +186,60 @@ namespace CForge {
 
 			return startPoints;
 		}
+		vector<int> getTESTStartpoints(CForge::T3DMesh<float>* scalp, vector<Vector3f>& vertexList, Vector2f partingXY, int pointNumber = 10) {
+			vector<int> startPoints;
+			//get all Vertices with x ~ partingX and y >= partingY
+			vector<int> sampleVertices;
 
-		void setSplineControlpoints(CForge::T3DMesh<float>* scalp, vector<Vector3f> startPoints) {
-			//TODO
+			float delta = 30.0f / scalp->vertexCount();		//tolerance around x
+			for (int i = 0; i < vertexList.size(); i++) {
+				if (vertexList[i][1] >= (partingXY.y() - delta))
+					if ((vertexList[i][0] >= (partingXY.x() - delta)) && (vertexList[i][0] <= (partingXY.x() + delta))) sampleVertices.push_back(i);
+			}
+
+			for (auto i : sampleVertices) {
+				startPoints.push_back(i);
+			}
+			sort(startPoints.begin(), startPoints.end(), CForge::HairModelGen::compareVectorZ);
+			startPoints.erase(startPoints.begin() + 9, startPoints.end() - 9);
+			return startPoints;
+		}
+
+		vector<vector<Vector3f>> setSplineControlpoints(CForge::T3DMesh<float>* scalp, vector<Vector3f>& vertexList, vector<Vector3f>& normalList, vector<int> startPoints, float minY) {
+			vector<vector<Vector3f>> controlPoints;
+
+			//left side
+			for (auto i : startPoints) {
+				int currentPoint = i;
+				vector<Vector3f> currentCtrlPts;
+				currentCtrlPts.push_back(vertexList[i]);
+				//get normal from startPoints
+				Vector3f currentVec = normalList[i];
+				
+				
+
+				//
+				controlPoints.push_back(currentCtrlPts);
+				currentCtrlPts.clear();
+			}
+
+			//right side
 			return;
 		}
 
-		void createSplines(CForge::T3DMesh<float>* scalp, vector<Vector3f> controlPoints) {
-			//TODO
+		void createSplines(CForge::T3DMesh<float>* scalp, vector<vector<Vector3f>> controlPoints) {
+			//vector<bezier::Bezier<3>> splineList;
+			for (auto i : controlPoints) {
+				//bezier::Bezier<3> cubicBezier(i);
+
+			}
+			return;
+		}
+
+		void testSplines(CForge::T3DMesh<float>* scalp, vector<Vector3f> controlPoints) {
+			for (auto i : controlPoints) {
+
+			}
 			return;
 		}
 
@@ -272,8 +319,8 @@ namespace CForge {
 			m_ScalpSGN.scale(Vector3f(1.0f, 1.0f, 1.0f));
 
 			//testing
-			vector <Vector3f> startPoints;
-			Vector2f partingXY = Vector2f(0.1f, 0.1f);
+			vector <int> startPoints;
+			Vector2f partingXY = Vector2f(0.1f, 0.3f);
 			int stripNumber = 10;
 			vector <Vector3f> vertexList;
 			for (int i = 0; i < Scalp.vertexCount(); i++) {
@@ -292,8 +339,10 @@ namespace CForge {
 			}
 			vector<vector<int>> adjList;
 			igl::adjacency_list(faceListIndex, adjList);
-			printf("%d, %d \n", Scalp.vertexCount(), adjList.size());
-			startPoints = getStartpoints(&Scalp, vertexList, adjList, partingXY, stripNumber);
+			//printf("%d, %d \n", Scalp.vertexCount(), adjList.size());
+			printf("%d, %d \n", Scalp.vertexCount(), Scalp.normalCount());
+			//startPoints = getStartpoints(&Scalp, vertexList, adjList, partingXY, stripNumber);
+			startPoints = getTESTStartpoints(&Scalp, vertexList, partingXY, stripNumber);
 
 			m_TestGroupSGN.init(&m_HeadTransformSGN);
 			
@@ -306,7 +355,7 @@ namespace CForge {
 				pTransformSGN = new SGNTransformation();
 				pTransformSGN->init(&m_TestGroupSGN);
 
-				pTransformSGN->translation(startPoints[i]);
+				pTransformSGN->translation(vertexList[startPoints[i]]);
 				//pTransformSGN->translation(Vector3f(0.0f, 0.0f, 0.0f));
 				pTransformSGN->scale(Vector3f(0.04f, 0.04f, 0.04f));
 
