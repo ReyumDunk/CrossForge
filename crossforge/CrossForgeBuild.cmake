@@ -31,29 +31,37 @@ include(FetchContent)
 #FetchContent_MakeAvailable(rply)
 #include_directories(${rply_SOURCE_DIR}/)
 
-FetchContent_Declare(
-	pmp 
-	GIT_REPOSITORY https://github.com/pmp-library/pmp-library.git
-	GIT_TAG 2.0.1
-)
-FetchContent_MakeAvailable(pmp)
-set(PMP_BUILD_APPS OFF CACHE INTERNAL "Build the PMP applications")
-set(PMP_BUILD_EXAMPLES OFF CACHE INTERNAL "Build the PMP examples")
-set(PMP_BUILD_TESTS OFF CACHE INTERNAL "Build the PMP test programs")
-set(PMP_BUILD_DOCS OFF CACHE INTERNAL "Build the PMP documentation")
-set(PMP_BUILD_VIS OFF CACHE INTERNAL "Build the PMP visualization tools")
+#FetchContent_Declare(
+#	pmp 
+#	GIT_REPOSITORY https://github.com/pmp-library/pmp-library.git
+#	GIT_TAG 2.0.1
+#)
+#FetchContent_MakeAvailable(pmp)
+#set(PMP_BUILD_APPS OFF CACHE INTERNAL "Build the PMP applications")
+#set(PMP_BUILD_EXAMPLES OFF CACHE INTERNAL "Build the PMP examples")
+#set(PMP_BUILD_TESTS OFF CACHE INTERNAL "Build the PMP test programs")
+#set(PMP_BUILD_DOCS OFF CACHE INTERNAL "Build the PMP documentation")
+#set(PMP_BUILD_VIS OFF CACHE INTERNAL "Build the PMP visualization tools")
 #set(PMP_INSTALL OFF CACHE INTERNAL "Install the PMP library and headers")
-include_directories(${pmp_SOURCE_DIR}/src/)
+#include_directories(${pmp_SOURCE_DIR}/src/)
 
-#[[
+
+#FetchContent_Declare(
+#    ndcurves
+#    GIT_REPOSITORY https://github.com/loco-3d/ndcurves.git
+#    GIT_TAG        v1.3.1
+#)
+
+#set(BUILD_PYTHON_INTERFACE OFF)
+#FetchContent_MakeAvailable(ndcurves)
+#include_directories(${ndcurves_SOURCE_DIR}/include)
+
 FetchContent_Declare(
-	ndsplines 
-	GIT_REPOSITORY https://github.com/loco-3d/ndcurves.git
-	GIT_TAG v1.3.0
+	tinynurbs 
+	GIT_REPOSITORY https://github.com/pradeep-pyro/tinynurbs.git
 )
-FetchContent_MakeAvailable(ndsplines)
-include_directories(${ndsplines_SOURCE_DIR}/include/)
-]]
+FetchContent_MakeAvailable(tinynurbs)
+include_directories(${tinynurbs_SOURCE_DIR}/include)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -134,6 +142,8 @@ else()
 	FIND_PACKAGE(freetype REQUIRED)		# Library to load and process vector based fonts
 	FIND_PACKAGE(libigl CONFIG REQUIRED)	# mesh processing library
 	FIND_PACKAGE(WebP CONFIG REQUIRED)	# WebP to import/export webp
+	FIND_PACKAGE(rply CONFIG REQUIRED)	# 
+	FIND_PACKAGE(glm CONFIG REQUIRED)	# OpenGL mathematics
 
 endif()
 
@@ -295,6 +305,7 @@ target_link_libraries(crossforge
 	ws2_32					#winsock2
 	${FREETYPE_LIBRARIES}	# for Text rendering
 	${OpenCV_LIBS}
+	PRIVATE tinynurbs
 	#	pmp # not used yet
 	)
 elseif(__arm__)

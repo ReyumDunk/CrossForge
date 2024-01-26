@@ -111,8 +111,8 @@ elseif(WIN32)
 	PRIVATE glad::glad
 	ws2_32
 	PRIVATE tinyxml2::tinyxml2
-	PRIVATE pmp 
-	PRIVATE rply
+#	PRIVATE pmp 
+#	PRIVATE rply
 #	PRIVATE ndsplines
 #	PRIVATE fcl
 #	${FREETYPE_LIBRARIES}

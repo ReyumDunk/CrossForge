@@ -16,7 +16,8 @@
 			"default-features": false,
 			"features": [ "opengl3-binding", "glfw-binding" ]
 		},
-		"rply"
+		"rply",
+		"glm"
 	]
 }
 
