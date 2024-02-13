@@ -28,6 +28,8 @@
 using namespace CForge;
 using namespace Eigen;
 
+vector<Vector3f> HairModelGen::vertexList;
+
 //#define ActiveScene ExampleSceneBase
 
 //#define ActiveScene ExampleMinimumGraphicsSetup
