@@ -52,6 +52,13 @@ namespace CForge {
 			return (vertexList[v1].z() < vertexList[v2].z());
 		}
 
+		bool VectorIsEqual(Vector3f v1, Vector3f v2) {
+			if (!v1.x() == v2.x()) return false;
+			if (!v1.y() == v2.y()) return false;
+			if (!v1.z() == v2.z()) return false;
+			return true;
+		}
+
 		glm::vec3 glmVecFromVector3f(Vector3f vector) {
 			return glm::vec3(vector.x(), vector.y(), vector.z());
 		}
@@ -132,7 +139,7 @@ namespace CForge {
 			//get all Vertices with x ~ partingX and y >= partingY
 			vector<int> sampleVertices;
 
-			float delta = 30.0f / scalp->vertexCount();		//tolerance around x
+			float delta = 1.0f / scalp->vertexCount();		//tolerance around x
 			for (int i = 0; i < vertexList.size(); i++) {
 				if (vertexList[i][1] >= (partingXY.y() - delta))
 					if ((vertexList[i][0] >= (partingXY.x() - delta)) && (vertexList[i][0] <= (partingXY.x() + delta))) sampleVertices.push_back(i);
@@ -160,7 +167,8 @@ namespace CForge {
 					}
 				}
 			}*/
-
+			//TODO path needs to be 
+			// weight of edges inverse proportional to y component
 			vector<int> path;
 			if (minZ != maxZ) {
 				printf("%d %d\n", minZ, maxZ);
@@ -176,10 +184,10 @@ namespace CForge {
 				//TODO calculate geodesic distance
 				
 				//read positions Vector3f
-				printf("Pathindices:\n");
-				for (auto i : path){
-					printf("%d", i);
-				}
+				//printf("Pathindices:\n");
+				//for (auto i : path){
+				//	printf("%d", i);
+				//}
 				/*
 				vector<Vector3f> pathV;
 
@@ -206,7 +214,7 @@ namespace CForge {
 			//get all Vertices with x ~ partingX and y >= partingY
 			vector<int> sampleVertices;
 
-			float delta = 30.0f / scalp->vertexCount();		//tolerance around x
+			float delta = 15.0f / scalp->vertexCount();		//tolerance around x
 			for (int i = 0; i < vertexList.size(); i++) {
 				if (vertexList[i][1] >= (partingXY.y() - delta))
 					if ((vertexList[i][0] >= (partingXY.x() - delta)) && (vertexList[i][0] <= (partingXY.x() + delta))) sampleVertices.push_back(i);
@@ -216,48 +224,50 @@ namespace CForge {
 				startPoints.push_back(i);
 			}
 			sort(startPoints.begin(), startPoints.end(), CForge::HairModelGen::compareVectorZ);
-			startPoints.erase(startPoints.begin() + 9, startPoints.end() - 9);
+			//startPoints.erase(startPoints.begin() + 9, startPoints.end() - 9);
 			//problem: multiple points in (nearly?) same position
 			/*
+			//vector out of range error
 			int j = 0;
 			while (j < 5) {
 				startPoints.erase(startPoints.begin() + j + 1, startPoints.begin() + j + 3);
 				j++;
 			}*/
+
 			/*
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin());
-			startPoints.erase(startPoints.begin() + 1);*/
+			//vector out of range error
+			int i = 0;
+			while (i < startPoints.size()) {
+				int j = i + 1;
+				while (j < startPoints.size()) {
+					if (VectorIsEqual(vertexList[startPoints[i]], vertexList[startPoints[j]])) startPoints.erase(startPoints.begin() + j);
+					else j++;
+				}
+				i++;
+			}*/
 			return startPoints;
 		}
 		
 		vector<vector<Vector3f>> setSplineControlpoints(CForge::T3DMesh<float>* scalp, vector<Vector3f>& vertexList, vector<Vector3f>& normalList, vector<int> startPoints, float minY) {
 			vector<vector<Vector3f>> controlPoints;
 			T3DMesh<float>::AABB scalpAABB = scalp->aabb();
-			float ctrlPointNum = 6.0f;
+			float ctrlPointNum = 4.0f;
 			Vector3f middleStartPoint = vertexList[startPoints[(int)startPoints.size() / 2]];
 			//approximate max length is double diagonal length between start and end point divided by sqrt(2) (3 controlpoints)
 			//pythagoras on isosceles triangle: sqrt(2)*a = c -> 2*a = 2*c/sqrt(2)
 			//additionally divided by number of desired controlpoints-1
 			float vecLength = (Vector3f(scalpAABB.Max.x(), minY, 0.0f) - middleStartPoint).stableNorm();
 			vecLength = 2.0f / 1.4f * vecLength / (ctrlPointNum - 1.1f);		//smaller value for controlPoint number so that it guarantees constant number in creation loop
+			Vector3f TestRotVec = Vector3f::UnitZ();							//TODO
 
 			//left side
 			float initialAngleLeft = -80.0f;
-			
+			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f);
+			if (middleStartPoint.x() > 0) rotAngleLeft += middleStartPoint.x() * (-300.0f);		//TODO adjust angle added according to position
+			else if (middleStartPoint.x() < 0) {
+				rotAngleLeft += middleStartPoint.x() * (100.0f);
+				initialAngleLeft -= 10.0f;
+			}
 			for (int i = 0; i < startPoints.size(); i++) {
 				Vector3f currentPoint = vertexList[startPoints[i]];
 				vector<Vector3f> currentCtrlPts;
@@ -265,6 +275,7 @@ namespace CForge {
 				//get normal from startPoints
 				Vector3f currentVec = normalList[startPoints[i]];
 				//get initial rotation vector
+				
 				Vector3f currentRotVec;
 				if (i == 0) {
 					currentRotVec = vertexList[startPoints[i + 1]] - currentPoint;
@@ -295,24 +306,27 @@ namespace CForge {
 					//push currentPoint to currentCtrlPts				
 					currentCtrlPts.push_back(currentPoint);
 					//rotate currentVec, rotation angle depends on horizontal position of parting on scalp
-					float rotAngle = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f) + middleStartPoint.x()*(-100.0f);		//TODO adjust angle added according to position
+					//currentRotVec += Vector3f::UnitZ();
+					//currentRotVec.normalize();
 					Vector4f h;
 					h = Vector4f(currentVec.x(), currentVec.y(), currentVec.z(), 1.0f);
 					if (h.x() > 0.0f) {
-						h = CForgeMath::rotationMatrix((Quaternionf)AngleAxisf(CForgeMath::degToRad(rotAngle), currentRotVec)) * h;
+						h = CForgeMath::rotationMatrix((Quaternionf)AngleAxisf(CForgeMath::degToRad(rotAngleLeft), currentRotVec)) * h;
+						//h = CForgeMath::rotationMatrix((Quaternionf)AngleAxisf(CForgeMath::degToRad(rotAngleLeft), TestRotVec)) * h;
 					}
 					//prevent resulting vector from pointing in opposite x direction from before
 					if (h.x() < 0.0f) currentVec = Vector3f(0.0f, h.y(), h.z());
 					else currentVec = Vector3f(h.x(), h.y(), h.z());
 					//apply gravity and then length
-					currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
+					//currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
+					currentVec += Vector3f(0.0f, -0.05f, -currentVec.z() / 2);		//TODO adjust gravity value
 					currentVec.normalize();
 					currentVec = vecLength * currentVec;			
 					//TODO IMPROVEMENT make vecLength proportional to number of current ctrl point so that earlier length is shorter
 					
 				}
 				//last controlpoint is at minY
-				Vector3f lastPoint = Vector3f(currentPoint.x(), minY, currentPoint.z());
+				Vector3f lastPoint = Vector3f(currentPoint.x(), minY, currentPoint.z()/2);
 				currentCtrlPts.push_back(lastPoint);
 				controlPoints.push_back(currentCtrlPts);
 				currentCtrlPts.clear();
@@ -320,7 +334,13 @@ namespace CForge {
 
 			//right side same as left side only diffrent rotation angles and negative x TODO
 			float initialAngleRight = 80.0f;
-			
+			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f);
+			if (middleStartPoint.x() < 0) rotAngleRight += middleStartPoint.x() * (-300.0f);		//TODO adjust angle added according to position
+			else if (middleStartPoint.x() > 0) {
+				rotAngleRight += middleStartPoint.x() * (100.0f);
+				initialAngleRight += 10.0f;
+			}
+
 			for (int i = 0; i < startPoints.size(); i++) {
 				Vector3f currentPoint = vertexList[startPoints[i]];
 				vector<Vector3f> currentCtrlPts;
@@ -328,6 +348,7 @@ namespace CForge {
 				//get normal from startPoints
 				Vector3f currentVec = normalList[startPoints[i]];
 				//get initial rotation vector
+				
 				Vector3f currentRotVec;
 				if (i == 0) {
 					currentRotVec = vertexList[startPoints[i + 1]] - currentPoint;
@@ -346,6 +367,7 @@ namespace CForge {
 				h = Vector4f(currentVec.x(), currentVec.y(), currentVec.z(), 1.0f);
 
 				h = CForgeMath::rotationMatrix((Quaternionf)AngleAxisf(CForgeMath::degToRad(initialAngleRight), currentRotVec)) * h;
+				//h = CForgeMath::rotationMatrix((Quaternionf)AngleAxisf(CForgeMath::degToRad(initialAngleRight), TestRotVec)) * h;
 				currentVec = Vector3f(h.x(), h.y(), h.z());
 				//apply length to currentVec -> about 4(-6?) controlpoints
 				currentVec.normalize();
@@ -358,17 +380,19 @@ namespace CForge {
 					//push currentPoint to currentCtrlPts				
 					currentCtrlPts.push_back(currentPoint);
 					//rotate currentVec, rotation angle depends on horizontal position of parting on scalp
-					float rotAngle = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f) + middleStartPoint.x() * (-100.0f);		//TODO adjust angle added according to position
+					//currentRotVec += Vector3f::UnitZ();
+					//currentRotVec.normalize();
 					Vector4f h;
 					h = Vector4f(currentVec.x(), currentVec.y(), currentVec.z(), 1.0f);
 					if (h.x() < 0.0f) {
-						h = CForgeMath::rotationMatrix((Quaternionf)AngleAxisf(CForgeMath::degToRad(rotAngle), currentRotVec)) * h;
+						h = CForgeMath::rotationMatrix((Quaternionf)AngleAxisf(CForgeMath::degToRad(rotAngleRight), currentRotVec)) * h;
 					}
 					//prevent resulting vector from pointing in opposite x direction from before
 					if (h.x() > 0.0f) currentVec = Vector3f(0.0f, h.y(), h.z());
 					else currentVec = Vector3f(h.x(), h.y(), h.z());
 					//apply gravity and then length
-					currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
+					//currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
+					currentVec += Vector3f(0.0f, -0.05f, -currentVec.z()/2);		//TODO adjust gravity value
 					currentVec.normalize();
 					currentVec = vecLength * currentVec;
 					//TODO IMPROVEMENT make vecLength proportional to number of current ctrl point so that earlier length is shorter
@@ -394,9 +418,18 @@ namespace CForge {
 				spline.control_points = glmCtrlPts;
 				// #knots == #control points + degree + 1
 				vector<float> knots;
-				for (int i = 0; i < glmCtrlPts.size(); i++) knots.push_back(0.0f);
 				spline.degree = 3;
-				for (int i = 0; i < spline.degree + 1; i++) knots.push_back(1.0f);
+				/*
+				int knotNum = glmCtrlPts.size() + spline.degree + 1;
+				for (int i = 1; i <= knotNum; i++) {
+					if (i <= (int)(knotNum / 2)) knots.push_back(0.0f);
+					else knots.push_back(1.0f);
+				}*/
+				
+				for (int i = 0; i < spline.degree + 1; i++) knots.push_back(0.0f);
+				for (int i = 0; i < glmCtrlPts.size(); i++) knots.push_back(1.0f);
+				
+				//knots = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 				spline.knots = knots;
 				if (!tinynurbs::curveIsValid(spline)) {
 					printf("Spline not valid\n");
@@ -564,6 +597,7 @@ namespace CForge {
 			m_ScalpSGN.scale(Vector3f(1.0f, 1.0f, 1.0f));
 
 			//testing
+			
 			vector <int> startPoints;
 			Vector2f partingXY = Vector2f(0.1f, 0.3f);
 			int stripNumber = 10;
@@ -585,9 +619,9 @@ namespace CForge {
 			igl::adjacency_list(faceListIndex, adjList);
 			//printf("%d, %d \n", Scalp.vertexCount(), adjList.size());
 			//printf("%d, %d \n", Scalp.vertexCount(), Scalp.normalCount());
-			//startPoints = getStartpoints(&Scalp, vertexList, adjList, partingXY, stripNumber);
-			startPoints = getTESTStartpoints(&Scalp, vertexList, partingXY, stripNumber);
-			//printf("%d \n", startPoints.size());
+			startPoints = getStartpoints(&Scalp, vertexList, adjList, partingXY, stripNumber);
+			//startPoints = getTESTStartpoints(&Scalp, vertexList, partingXY, stripNumber);
+			printf("%d \n", startPoints.size());
 			vector <Vector3f> normalList;
 			for (int i = 0; i < Scalp.normalCount(); i++) {
 				normalList.push_back(Scalp.normal(i));
@@ -598,6 +632,10 @@ namespace CForge {
 			vector<tinynurbs::Curve<float>> splineList = createSplines(&Scalp, controlPoints);
 
 			// Tests
+			for (auto i : startPoints) {
+				//printf("%.2f %.2f %.2f \n", normalList[i].x(), normalList[i].y(), normalList[i].z());
+				//printf("%.2f %.2f %.2f \n", vertexList[i].x(), vertexList[i].y(), vertexList[i].z());
+			}
 			TestStartPoints(&m_HeadTransformSGN, startPoints, vertexList, &m_Test);
 			TestControlPoints(&m_HeadTransformSGN, controlPoints, &m_Test);
 			TestSplines(&m_HeadTransformSGN, splineList, &m_Test);
