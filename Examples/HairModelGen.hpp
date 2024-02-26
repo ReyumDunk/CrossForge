@@ -243,7 +243,7 @@ namespace CForge {
 			//Vector3f TestRotVec = Vector3f::UnitZ();							//TODO
 			
 			//left side
-			float initialAngleLeft = -80.0f;
+			float initialAngleLeft = -90.0f;
 			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f);
 			if (parting.x() > 0) rotAngleLeft += parting.x() * (-300.0f);		//TODO adjust angle added according to position
 			else if (parting.x() < 0) {
@@ -309,7 +309,7 @@ namespace CForge {
 			}
 			
 			//right side same as left side only diffrent rotation angles and negative x TODO
-			float initialAngleRight = 80.0f;
+			float initialAngleRight = 90.0f;
 			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f);
 			if (parting.x() < 0) rotAngleRight += parting.x() * (-300.0f);		//TODO adjust angle added according to position
 			else if (parting.x() > 0) {
@@ -379,38 +379,36 @@ namespace CForge {
 			}
 
 			// back
-			/*
+			
 			int stepSize = startPoints.size();
 			Vector3f originNormal = normalList[startPoints[0]].normalized();
 			Vector3f origin = vertexList[startPoints[0]];
 			Vector3f currentRotVec = (vertexList[startPoints[1]] - origin).normalized();
 			//TODO changing stepSize changes number of strips
-			int stepSizeLeft = 3;
+			int stepSizeLeft = int(stepSize / 2);
 			int stepSizeRight = stepSize - stepSizeLeft;
 			float angleStepLeft = 90.0f / float(stepSizeLeft);
 			float angleStepRight = 90.0f / float(stepSizeRight);
-			currentRotVec = rotateVector3f(currentRotVec, originNormal, 180.0f);
-			rotAngleLeft = -(rotAngleLeft - 5.0f * origin.y());
-			rotAngleRight += 5.0f * origin.y();
-			float rotAngleMiddle = max(rotAngleLeft, rotAngleRight) - 300.0f * origin.z();
+			currentRotVec = -1.0f * currentRotVec;
+			rotAngleLeft = (rotAngleLeft - 5.0f * origin.y());
+			rotAngleRight = -(rotAngleRight + 5.0f * origin.y());
+			float rotAngleMiddle = min(rotAngleLeft, rotAngleRight) + 300.0f * origin.z();
 			float vecLengthBack = (Vector3f(origin.x(), minY, scalpAABB.Min.z()) - origin).stableNorm();
 			vecLengthBack = 2.0f / 1.4f * vecLengthBack / (ctrlPointNum - 1.1f);
 			vecLengthBack = (vecLength + vecLengthBack) / 2.0f;
-			printf("%d %d %d\n", stepSize, stepSizeLeft, stepSizeRight);
-			for (int i = 1; i < stepSize - 1; i++) {
+			//printf("%d %d %d\n", stepSize, stepSizeLeft, stepSizeRight);
+			for (int i = 0; i < stepSize; i++) {
 				vector<Vector3f> currentCtrlPts;
 				Vector3f currentPoint = origin;
 				currentCtrlPts.push_back(currentPoint);
-				if (i <= stepSizeRight) currentRotVec = rotateVector3f(currentRotVec, originNormal, angleStepRight).normalized();
-				else currentRotVec = rotateVector3f(currentRotVec, originNormal, angleStepLeft).normalized();
 				sideVecs->push_back(currentRotVec);
-				Vector3f currentVec = rotateVector3f(originNormal, currentRotVec, 80.0f).normalized();
+				Vector3f currentVec = rotateVector3f(originNormal, currentRotVec, 90.0f).normalized();
 				currentVec *= vecLengthBack;
 
 				//rotAngleBack interpolation between rotAngle Left-Middle or Right-Middle
 				float rotAngleBack = rotAngleMiddle;
-				if (i < stepSizeRight) rotAngleBack = float(i) / float(stepSizeRight) * rotAngleRight + float(stepSizeRight - i) / float(stepSizeRight) * rotAngleMiddle;
-				else if (i > stepSizeRight) rotAngleBack = float(i - stepSizeRight) / float(stepSizeLeft) * rotAngleLeft + float(stepSizeLeft - (i - stepSizeRight)) / float(stepSizeLeft) * rotAngleMiddle;
+				//if (i <= stepSizeLeft) rotAngleBack = float(stepSizeLeft - i) / float(stepSizeLeft) * rotAngleLeft + float(i) / float(stepSizeLeft) * rotAngleMiddle;
+				//else if (i > stepSizeLeft) rotAngleBack = float(i - stepSizeLeft) / float(stepSizeRight) * rotAngleRight + float(stepSizeRight - (i - stepSizeLeft)) / float(stepSizeRight) * rotAngleMiddle;
 
 				//creation loop per spline
 				for (float j = 1.0f; j < ctrlPointNum - 1.0f; j += 1.0f) {
@@ -422,7 +420,7 @@ namespace CForge {
 					//prevent resulting vector from pointing in opposite direction from before
 					//TODO improve by using angle instead of 1 total direction
 					if (h.z() > 0.0f) h = Vector3f(h.x(), h.y(), 0.0f);
-					if ((h.x() > 0.0f && i <= stepSizeRight ) || (h.x() < 0.0f && i > stepSizeRight)) h = Vector3f(0.0f, h.y(), h.z());
+					if ((h.x() > 0.0f && i <= stepSizeLeft ) || (h.x() < 0.0f && i > stepSizeLeft)) h = Vector3f(0.0f, h.y(), h.z());
 					currentVec = h;
 					//apply gravity and then length
 					//currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
@@ -437,8 +435,10 @@ namespace CForge {
 				currentCtrlPts.push_back(lastPoint);
 				controlPoints.push_back(currentCtrlPts);
 				currentCtrlPts.clear();
+				if (i <= stepSizeLeft) currentRotVec = rotateVector3f(currentRotVec, originNormal, angleStepLeft).normalized();
+				else currentRotVec = rotateVector3f(currentRotVec, originNormal, angleStepRight).normalized();
 			}
-			*/
+			
 			return controlPoints;
 		}
 
@@ -489,7 +489,7 @@ namespace CForge {
 			//vector<T3DMesh<float>> pMeshes;
 			//strip width
 			float width = 0.0f;
-			float delta = 0.0f;
+			float delta = 0.1f;
 			vector<Vector3f> startVertices;
 			for (int i = 0; i < startPoints.size(); i++) {
 				startVertices.push_back(vertexList[startPoints[i]]);
@@ -881,11 +881,11 @@ namespace CForge {
 			TestStartPoints(&m_HeadTransformSGN, startPoints, vertexList, &m_Test);
 			TestControlPoints(&m_HeadTransformSGN, controlPoints, &m_Test);
 			TestSplines(&m_HeadTransformSGN, splineList, &m_Test);
-			//TestStrips(&m_HeadTransformSGN, &pMesh, &m_TestStrip);
+			TestStrips(&m_HeadTransformSGN, &pMesh, &m_TestStrip);
 			//PrimitiveShapeFactory::plane(&pMesh, Vector2f(10.0f, 10.0f), Vector2i(20, 20));
-			m_TestStripsTransformSGN.init(&m_HeadTransformSGN);
-			m_TestStrip.init(&pMesh);
-			m_TestStripsSGN.init(&m_TestStripsTransformSGN, &m_TestStrip);
+			//m_TestStripsTransformSGN.init(&m_HeadTransformSGN);
+			//m_TestStrip.init(&pMesh);
+			//m_TestStripsSGN.init(&m_TestStripsTransformSGN, &m_TestStrip);
 
 			m_TestStartPointsGroupSGN.enable(false, false);
 			m_TestControlPointsGroupSGN.enable(false, false);
