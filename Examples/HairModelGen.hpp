@@ -243,12 +243,13 @@ namespace CForge {
 			//Vector3f TestRotVec = Vector3f::UnitZ();							//TODO
 			
 			//left side
-			float initialAngleLeft = -90.0f;
-			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f);
+			float initialAngleLeft = -85.0f;
+			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f) - 30.0f;
 			if (parting.x() > 0) rotAngleLeft += parting.x() * (-300.0f);		//TODO adjust angle added according to position
-			else if (parting.x() < 0) {
-				rotAngleLeft += parting.x() * (100.0f);
-			}
+			//else if (parting.x() < 0) {
+				//rotAngleLeft += parting.x() * (50.0f);
+			//}
+			
 			for (int i = 0; i < startPoints.size(); i++) {
 				Vector3f currentPoint = vertexList[startPoints[i]];
 				vector<Vector3f> currentCtrlPts;
@@ -309,12 +310,12 @@ namespace CForge {
 			}
 			
 			//right side same as left side only diffrent rotation angles and negative x TODO
-			float initialAngleRight = 90.0f;
-			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f);
+			float initialAngleRight = 85.0f;
+			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f) + 30.0f;
 			if (parting.x() < 0) rotAngleRight += parting.x() * (-300.0f);		//TODO adjust angle added according to position
-			else if (parting.x() > 0) {
-				rotAngleRight += parting.x() * (100.0f);
-			}
+			//else if (parting.x() > 0) {
+				//rotAngleRight += parting.x() * (50.0f);
+			//}
 			
 			for (int i = 0; i < startPoints.size(); i++) {
 				Vector3f currentPoint = vertexList[startPoints[i]];
@@ -380,7 +381,7 @@ namespace CForge {
 
 			// back
 			
-			int stepSize = startPoints.size();
+			int stepSize = startPoints.size() * 2;
 			Vector3f originNormal = normalList[startPoints[0]].normalized();
 			Vector3f origin = vertexList[startPoints[0]];
 			Vector3f currentRotVec = (vertexList[startPoints[1]] - origin).normalized();
@@ -390,9 +391,9 @@ namespace CForge {
 			float angleStepLeft = 90.0f / float(stepSizeLeft);
 			float angleStepRight = 90.0f / float(stepSizeRight);
 			currentRotVec = -1.0f * currentRotVec;
-			rotAngleLeft = (rotAngleLeft - 5.0f * origin.y());
-			rotAngleRight = -(rotAngleRight + 5.0f * origin.y());
-			float rotAngleMiddle = min(rotAngleLeft, rotAngleRight) + 300.0f * origin.z();
+			rotAngleLeft = -(rotAngleLeft - 5.0f * origin.y());
+			rotAngleRight = (rotAngleRight + -5.0f * origin.y());
+			float rotAngleMiddle = max(rotAngleLeft, rotAngleRight);
 			float vecLengthBack = (Vector3f(origin.x(), minY, scalpAABB.Min.z()) - origin).stableNorm();
 			vecLengthBack = 2.0f / 1.4f * vecLengthBack / (ctrlPointNum - 1.1f);
 			vecLengthBack = (vecLength + vecLengthBack) / 2.0f;
@@ -402,29 +403,48 @@ namespace CForge {
 				Vector3f currentPoint = origin;
 				currentCtrlPts.push_back(currentPoint);
 				sideVecs->push_back(currentRotVec);
-				Vector3f currentVec = rotateVector3f(originNormal, currentRotVec, 90.0f).normalized();
+				Vector3f currentVec = rotateVector3f(originNormal, currentRotVec, 85.0f).normalized();
 				currentVec *= vecLengthBack;
 
 				//rotAngleBack interpolation between rotAngle Left-Middle or Right-Middle
 				float rotAngleBack = rotAngleMiddle;
 				//if (i <= stepSizeLeft) rotAngleBack = float(stepSizeLeft - i) / float(stepSizeLeft) * rotAngleLeft + float(i) / float(stepSizeLeft) * rotAngleMiddle;
 				//else if (i > stepSizeLeft) rotAngleBack = float(i - stepSizeLeft) / float(stepSizeRight) * rotAngleRight + float(stepSizeRight - (i - stepSizeLeft)) / float(stepSizeRight) * rotAngleMiddle;
-
+				
+				if (i < stepSizeLeft) rotAngleBack = rotAngleLeft + (rotAngleMiddle - rotAngleLeft) / float(stepSizeLeft) * float(i);
+				else if (i > stepSizeLeft) rotAngleBack = rotAngleMiddle + (rotAngleRight - rotAngleMiddle) / float(stepSize - stepSizeLeft) * float(i - stepSizeLeft);
+				
+				printf("%.2f\n", rotAngleBack);
 				//creation loop per spline
 				for (float j = 1.0f; j < ctrlPointNum - 1.0f; j += 1.0f) {
 					//add currentVec to currentPoint
 					currentPoint += currentVec;
 					//push currentPoint to currentCtrlPts				
 					currentCtrlPts.push_back(currentPoint);
+					currentVec.normalize();
+					
 					Vector3f h = rotateVector3f(currentVec, currentRotVec, rotAngleBack);
-					//prevent resulting vector from pointing in opposite direction from before
-					//TODO improve by using angle instead of 1 total direction
-					if (h.z() > 0.0f) h = Vector3f(h.x(), h.y(), 0.0f);
-					if ((h.x() > 0.0f && i <= stepSizeLeft ) || (h.x() < 0.0f && i > stepSizeLeft)) h = Vector3f(0.0f, h.y(), h.z());
-					currentVec = h;
+					if (i < int(stepSizeLeft / 2) || i > (stepSizeLeft + int(stepSizeRight / 2))) {
+						//prevent resulting vector from pointing in opposite direction from before
+						//TODO improve by using angle instead of 1 total direction
+						//if ((h.z() > 0.0f) || (h.x() > 0.0f && i <= stepSizeLeft) || (h.x() < 0.0f && i > stepSizeLeft)) h = Vector3f(0.0f, h.y(), 0.0f);
+						if (h.z() > 0.0f) h = Vector3f(h.x(), h.y(), 0.0f);
+						if ((h.x() < 0.0f && i < stepSizeLeft) || (h.x() > 0.0f && i > stepSizeLeft)) h = Vector3f(0.0f, h.y(), h.z());
+						currentVec = h;
+					}
+					else if (currentVec.x() != 0.0f || currentVec.z() != 0.0f) {
+						float x = 1.0f;
+						if (i < stepSizeLeft) x = float(i - int(stepSizeLeft / 2)) + 1.0f;
+						else x = float(stepSizeLeft + int(stepSizeRight / 2) - i) + 1.0f;
+						if (h.z() > 0.0f) h = Vector3f(h.x()/x, h.y(), 0.0f);
+						if ((h.x() < 0.0f && i < stepSizeLeft) || (h.x() > 0.0f && i > stepSizeLeft)) h = Vector3f(0.0f, h.y(), h.z()/x);
+						currentVec = h;
+
+					}
 					//apply gravity and then length
 					//currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
-					currentVec += Vector3f(-currentVec.x() / 2, 0.0f, -currentVec.z() / 2);		//TODO adjust gravity value
+					currentVec = Vector3f(currentVec.x() / 2.0f, currentVec.y(), currentVec.z() / 2.0f);		//TODO adjust gravity value
+					if (currentVec.y() > 0.0f) currentVec = Vector3f(currentVec.x(), -4.0f * currentVec.y(), currentVec.z());
 					currentVec.normalize();
 					currentVec = vecLengthBack * currentVec;
 					//TODO IMPROVEMENT make vecLength proportional to number of current ctrl point so that earlier length is shorter
@@ -473,8 +493,23 @@ namespace CForge {
 				
 				for (int i = 0; i < spline.degree + 1; i++) knots.push_back(0.0f);
 				for (int i = 0; i < glmCtrlPts.size(); i++) knots.push_back(1.0f);
-				
-				//knots = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+
+				/*
+				for (int i = 1; i < spline.degree + glmCtrlPts.size() + 1; i++) {
+					if (i <= spline.degree) knots.push_back(0.0f);
+					else if (i <= glmCtrlPts.size() + 1) knots.push_back(float(i - spline.degree));
+					else knots.push_back(float(glmCtrlPts.size() - spline.degree + 1));
+				}
+				/*
+				float h = 0.0f;
+				for (auto i : knots) {
+					if (i > h) h = i;
+				}
+				for (int i = 0; i < knots.size(); i++) {
+					knots[i] = knots[i] / h;
+				}*/
+
+				//knots = { 0.0f, 0.0f, 0.0f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f};
 				spline.knots = knots;
 				if (!tinynurbs::curveIsValid(spline)) {
 					printf("Spline not valid\n");
@@ -508,6 +543,7 @@ namespace CForge {
 			std::vector<Vector3f> UVWs;
 			T3DMesh<float>::Submesh Sub;
 			T3DMesh<float>::Material Mat;
+			T3DMesh<float>::Material MatA;
 			T3DMesh<float>::Face F;
 
 			for (int i = 0; i < splines.size(); i++) {
@@ -526,10 +562,10 @@ namespace CForge {
 				}
 				// generate triangles
 				for (uint32_t j = 0; j < 2 * (pSampleRate - 1); j += 2) {
-						auto v0 = j ;
-						auto v1 = j + 1;
-						auto v2 = j + 2;
-						auto v3 = j + 3;
+						auto v0 = j + 2 * i * pSampleRate;
+						auto v1 = j + 1 + 2 * i * pSampleRate;
+						auto v2 = j + 2 + 2 * i * pSampleRate;
+						auto v3 = j + 3 + 2 * i * pSampleRate;
 						F.Vertices[0] = v2;
 						F.Vertices[2] = v0;
 						F.Vertices[1] = v1;
@@ -543,12 +579,23 @@ namespace CForge {
 				//pMeshes.push_back(pMesh);
 				//pMesh.clear();
 			}
-			Mat.Color = Vector4f::Ones();
+			Mat.TexAlbedo = "MyAssets/Hairgen/straight_red_hair_texture.jpg";
+			Mat.TexEmissive = "MyAssets/Hairgen/straight_red_hair_texture_alpha.png";
+			//Mat.TexEmissive = "MyAssets/Hairgen/straight_dark_hair_texture.jpg";
+			/*
+			AssetIO::load();
+			T2DImage<uint8_t> img;
+			img.init();
+			AssetIO::store("name.webp", &img);*/
 			Sub.Material = 0;
 			pMesh->vertices(&Vertices);
 			pMesh->textureCoordinates(&UVWs);
-			pMesh->addSubmesh(&Sub, true);
 			pMesh->addMaterial(&Mat, true);
+			pMesh->addSubmesh(&Sub, true);
+			MatA.TexAlbedo = "MyAssets/Hairgen/straigt_dark_hair_texture_alpha.png";
+			pMesh->addMaterial(&MatA, true);
+			pMesh->computePerVertexNormals();
+			
 
 			return;
 		}
@@ -870,8 +917,12 @@ namespace CForge {
 			vector<vector<Vector3f>> controlPoints = setSplineControlpoints(&Scalp, vertexList, normalList, startPoints, partingXY, minY, &sideVecs);
 			vector<tinynurbs::Curve<float>> splineList = createSplines(&Scalp, controlPoints);
 			T3DMesh<float> pMesh;
+			//vector<T3DMesh<float>> pMeshes;
+			//vector<T3DMesh<float>*> pMeshList;
+			//for (int i = 0;
 			float sampleRate = 10.0f;
 			createStrips(&pMesh, startPoints, vertexList, splineList, sideVecs, sampleRate);
+			//createStrips(pMeshList, startPoints, vertexList, splineList, sideVecs, sampleRate);
 
 			// Tests
 			//for (auto i : startPoints) {
@@ -881,11 +932,8 @@ namespace CForge {
 			TestStartPoints(&m_HeadTransformSGN, startPoints, vertexList, &m_Test);
 			TestControlPoints(&m_HeadTransformSGN, controlPoints, &m_Test);
 			TestSplines(&m_HeadTransformSGN, splineList, &m_Test);
-			TestStrips(&m_HeadTransformSGN, &pMesh, &m_TestStrip);
 			//PrimitiveShapeFactory::plane(&pMesh, Vector2f(10.0f, 10.0f), Vector2i(20, 20));
-			//m_TestStripsTransformSGN.init(&m_HeadTransformSGN);
-			//m_TestStrip.init(&pMesh);
-			//m_TestStripsSGN.init(&m_TestStripsTransformSGN, &m_TestStrip);
+			TestStrips(&m_HeadTransformSGN, &pMesh, &m_TestStrip);
 
 			m_TestStartPointsGroupSGN.enable(false, false);
 			m_TestControlPointsGroupSGN.enable(false, false);
@@ -900,7 +948,7 @@ namespace CForge {
 			m_HelpTexts.push_back(pKeybindings);
 			pKeybindings->color(0.0f, 0.0f, 0.0f, 1.0f);
 			m_DrawHelpTexts = true;
-
+			gladLoadGL();
 			// stuff for performance monitoring
 			uint64_t LastFPSPrint = CForgeUtility::timestamp();
 			int32_t FPSCount = 0;
@@ -976,6 +1024,7 @@ namespace CForge {
 			}*/
 			m_RenderDev.activePass(RenderDevice::RENDERPASS_SHADOW, &m_Sun);
 			m_RenderDev.activeCamera(const_cast<VirtualCamera*>(m_Sun.camera()));
+			glDisable(GL_CULL_FACE);
 			m_SG.render(&m_RenderDev);
 
 			m_RenderDev.activePass(RenderDevice::RENDERPASS_GEOMETRY);
