@@ -245,7 +245,7 @@ namespace CForge {
 			//left side
 			float initialAngleLeft = -85.0f;
 			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f) - 30.0f;
-			if (parting.x() > 0) rotAngleLeft += parting.x() * (-300.0f);		//TODO adjust angle added according to position
+			//if (parting.x() > 0) rotAngleLeft += parting.x() * (-300.0f);		//TODO adjust angle added according to position
 			//else if (parting.x() < 0) {
 				//rotAngleLeft += parting.x() * (50.0f);
 			//}
@@ -312,7 +312,7 @@ namespace CForge {
 			//right side same as left side only diffrent rotation angles and negative x TODO
 			float initialAngleRight = 85.0f;
 			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f) + 30.0f;
-			if (parting.x() < 0) rotAngleRight += parting.x() * (-300.0f);		//TODO adjust angle added according to position
+			//if (parting.x() < 0) rotAngleRight += parting.x() * (-300.0f);		//TODO adjust angle added according to position
 			//else if (parting.x() > 0) {
 				//rotAngleRight += parting.x() * (50.0f);
 			//}
@@ -381,7 +381,7 @@ namespace CForge {
 
 			// back
 			
-			int stepSize = startPoints.size() * 2;
+			int stepSize = int(startPoints.size() * 3 / 2);
 			Vector3f originNormal = normalList[startPoints[0]].normalized();
 			Vector3f origin = vertexList[startPoints[0]];
 			Vector3f currentRotVec = (vertexList[startPoints[1]] - origin).normalized();
@@ -403,7 +403,7 @@ namespace CForge {
 				Vector3f currentPoint = origin;
 				currentCtrlPts.push_back(currentPoint);
 				sideVecs->push_back(currentRotVec);
-				Vector3f currentVec = rotateVector3f(originNormal, currentRotVec, 85.0f).normalized();
+				Vector3f currentVec = rotateVector3f(originNormal, currentRotVec, 89.0f).normalized();
 				currentVec *= vecLengthBack;
 
 				//rotAngleBack interpolation between rotAngle Left-Middle or Right-Middle
@@ -411,8 +411,8 @@ namespace CForge {
 				//if (i <= stepSizeLeft) rotAngleBack = float(stepSizeLeft - i) / float(stepSizeLeft) * rotAngleLeft + float(i) / float(stepSizeLeft) * rotAngleMiddle;
 				//else if (i > stepSizeLeft) rotAngleBack = float(i - stepSizeLeft) / float(stepSizeRight) * rotAngleRight + float(stepSizeRight - (i - stepSizeLeft)) / float(stepSizeRight) * rotAngleMiddle;
 				
-				if (i < stepSizeLeft) rotAngleBack = rotAngleLeft + (rotAngleMiddle - rotAngleLeft) / float(stepSizeLeft) * float(i);
-				else if (i > stepSizeLeft) rotAngleBack = rotAngleMiddle + (rotAngleRight - rotAngleMiddle) / float(stepSize - stepSizeLeft) * float(i - stepSizeLeft);
+				//if (i < stepSizeLeft) rotAngleBack = rotAngleLeft + (rotAngleMiddle - rotAngleLeft) / float(stepSizeLeft) * float(i);
+				//else if (i > stepSizeLeft) rotAngleBack = rotAngleMiddle + (rotAngleRight - rotAngleMiddle) / float(stepSize - stepSizeLeft) * float(i - stepSizeLeft);
 				
 				printf("%.2f\n", rotAngleBack);
 				//creation loop per spline
@@ -483,13 +483,7 @@ namespace CForge {
 				spline.control_points = glmCtrlPts;
 				// #knots == #control points + degree + 1
 				vector<float> knots;
-				spline.degree = 3;
-				/*
-				int knotNum = glmCtrlPts.size() + spline.degree + 1;
-				for (int i = 1; i <= knotNum; i++) {
-					if (i <= (int)(knotNum / 2)) knots.push_back(0.0f);
-					else knots.push_back(1.0f);
-				}*/
+				spline.degree = glmCtrlPts.size() - 1;
 				
 				for (int i = 0; i < spline.degree + 1; i++) knots.push_back(0.0f);
 				for (int i = 0; i < glmCtrlPts.size(); i++) knots.push_back(1.0f);
@@ -543,7 +537,6 @@ namespace CForge {
 			std::vector<Vector3f> UVWs;
 			T3DMesh<float>::Submesh Sub;
 			T3DMesh<float>::Material Mat;
-			T3DMesh<float>::Material MatA;
 			T3DMesh<float>::Face F;
 
 			for (int i = 0; i < splines.size(); i++) {
@@ -579,21 +572,12 @@ namespace CForge {
 				//pMeshes.push_back(pMesh);
 				//pMesh.clear();
 			}
-			Mat.TexAlbedo = "MyAssets/Hairgen/straight_red_hair_texture.jpg";
-			Mat.TexEmissive = "MyAssets/Hairgen/straight_red_hair_texture_alpha.png";
-			//Mat.TexEmissive = "MyAssets/Hairgen/straight_dark_hair_texture.jpg";
-			/*
-			AssetIO::load();
-			T2DImage<uint8_t> img;
-			img.init();
-			AssetIO::store("name.webp", &img);*/
+			Mat.TexAlbedo = "MyAssets/Hairgen/hair_texture2.webp";
 			Sub.Material = 0;
 			pMesh->vertices(&Vertices);
 			pMesh->textureCoordinates(&UVWs);
 			pMesh->addMaterial(&Mat, true);
 			pMesh->addSubmesh(&Sub, true);
-			MatA.TexAlbedo = "MyAssets/Hairgen/straigt_dark_hair_texture_alpha.png";
-			pMesh->addMaterial(&MatA, true);
 			pMesh->computePerVertexNormals();
 			
 
@@ -815,6 +799,27 @@ namespace CForge {
 			m_TestStripsSGN.init(&m_TestStripsTransformSGN, testActor);
 		}
 
+		virtual void initCameraAndLights(bool CastShadows = false) {
+			// initialize camera
+			m_Cam.init(Vector3f(0.0f, 3.0f, 8.0f), Vector3f::UnitY());
+			m_Cam.projectionMatrix(m_WinWidth, m_WinHeight, CForgeMath::degToRad(45.0f), 0.1f, 1000.0f);
+
+			// initialize sun (key light) and back ground light (fill light)
+			Vector3f SunPos = Vector3f(-5.0f, 15.0f, 35.0f);
+			Vector3f BGLightPos = Vector3f(0.0f, 5.0f, -30.0f);
+			m_Sun.init(SunPos, -SunPos.normalized(), Vector3f(1.0f, 1.0f, 1.0f), 5.0f);
+			// sun will cast shadows
+
+			//m_Sun.initShadowCasting(1024, 1024, GraphicsUtility::orthographicProjection(10.0f, 10.0f, 0.1f, 1000.0f));
+			if (CastShadows) m_Sun.initShadowCasting(1024, 1024, Vector2i(10, 10), 0.1f, 1000.0f);
+			m_BGLight.init(BGLightPos, -BGLightPos.normalized(), Vector3f(1.0f, 1.0f, 1.0f), 1.5f, Vector3f(0.0f, 0.0f, 0.0f));
+
+			// set camera and lights
+			m_RenderDev.activeCamera(&m_Cam);
+			m_RenderDev.addLight(&m_Sun);
+			m_RenderDev.addLight(&m_BGLight);
+		}//initCameraAndLights
+
 		void init() override{
 
 			initWindowAndRenderDevice();
@@ -920,6 +925,24 @@ namespace CForge {
 			//vector<T3DMesh<float>> pMeshes;
 			//vector<T3DMesh<float>*> pMeshList;
 			//for (int i = 0;
+
+			/*
+			T2DImage<uint8_t> imgC, imgAlpha;
+			AssetIO::load("MyAssets/Hairgen/straight_red_hair_texture.jpg", &imgC);
+			AssetIO::load("MyAssets/Hairgen/straight_red_hair_texture_alpha.png", &imgAlpha);
+			uint8_t* m_Data = imgAlpha.data();
+			for (int i = 0; i < imgC.height(); i++) {
+				for (int j = 0; j < imgC.width(); j++) {
+					uint8_t* pixel = imgC.pixel(j, i);
+					for (int k = 0; k < imgAlpha.componentsPerPixel()-1; k++) {
+						m_Data[i * imgAlpha.width() + j + k] = pixel[k];
+					}
+				}
+			}
+			T2DImage<uint8_t> img;
+			img.init(imgAlpha.width(), imgAlpha.height(), CForge::T2DImage<uint8_t>::COLORSPACE_RGBA, m_Data);
+			AssetIO::store("MyAssets/Hairgen/hair_texture.webp", &img);*/
+
 			float sampleRate = 10.0f;
 			createStrips(&pMesh, startPoints, vertexList, splineList, sideVecs, sampleRate);
 			//createStrips(pMeshList, startPoints, vertexList, splineList, sideVecs, sampleRate);
