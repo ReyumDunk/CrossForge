@@ -233,18 +233,18 @@ namespace CForge {
 			vector<vector<Vector3f>> controlPoints;
 			sideVecs->clear();
 			T3DMesh<float>::AABB scalpAABB = scalp->aabb();
-			float ctrlPointNum = 4.0f;
+			
 			Vector3f middleStartPoint = vertexList[startPoints[(int)startPoints.size() / 2]];
 			//approximate max length is double diagonal length between start and end point divided by sqrt(2) (3 controlpoints)
 			//pythagoras on isosceles triangle: sqrt(2)*a = c -> 2*a = 2*c/sqrt(2)
-			//additionally divided by number of desired controlpoints-1
+			//additionally divided by number of desired controlpoints-1d
 			float vecLength = (Vector3f(scalpAABB.Max.x(), minY, 0.0f) - middleStartPoint).stableNorm();
-			vecLength = 2.0f / 1.4f * vecLength / (ctrlPointNum - 1.1f);		//smaller value for controlPoint number so that it guarantees constant number in creation loop
+			vecLength = 2.0f / 1.4f * vecLength / (ctrlPointNum - 1.0f - 0.1f*ctrlPointNum*ctrlPointNum*(minY + 0.6f));		//smaller value for controlPoint number so that it guarantees constant number in creation loop
 			//Vector3f TestRotVec = Vector3f::UnitZ();							//TODO
 			
 			//left side
 			float initialAngleLeft = -85.0f;
-			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f) - 30.0f;
+			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f) - 60.0f/(ctrlPointNum - 2.0f);
 			//if (parting.x() > 0) rotAngleLeft += parting.x() * (-300.0f);		//TODO adjust angle added according to position
 			//else if (parting.x() < 0) {
 				//rotAngleLeft += parting.x() * (50.0f);
@@ -277,7 +277,7 @@ namespace CForge {
 				currentVec.normalize();
 				currentVec = vecLength * currentVec;
 				//angle adjustment to height
-				float adjustAngleLeft = -5.0f / currentPoint.y();
+				float adjustAngleLeft = -10.0f / currentPoint.y() / (ctrlPointNum -2.0f);
 
 				//control point creation loop per Spline
 				for (float i = 1.0f; i < ctrlPointNum - 1.0f; i += 1.0f) {
@@ -311,7 +311,7 @@ namespace CForge {
 			
 			//right side same as left side only diffrent rotation angles and negative x TODO
 			float initialAngleRight = 85.0f;
-			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f) + 30.0f;
+			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f) + 60.0f / (ctrlPointNum - 2.0f);
 			//if (parting.x() < 0) rotAngleRight += parting.x() * (-300.0f);		//TODO adjust angle added according to position
 			//else if (parting.x() > 0) {
 				//rotAngleRight += parting.x() * (50.0f);
@@ -346,7 +346,7 @@ namespace CForge {
 				currentVec.normalize();
 				currentVec = vecLength * currentVec;
 				//angle adjustment to height
-				float adjustAngleRight = 5.0f / currentPoint.y();
+				float adjustAngleRight = 10.0f / currentPoint.y() / (ctrlPointNum - 2.0f);
 
 
 				//control point creation loop per Spline
@@ -391,11 +391,11 @@ namespace CForge {
 			float angleStepLeft = 90.0f / float(stepSizeLeft);
 			float angleStepRight = 90.0f / float(stepSizeRight);
 			currentRotVec = -1.0f * currentRotVec;
-			rotAngleLeft = -(rotAngleLeft - 5.0f * origin.y());
-			rotAngleRight = (rotAngleRight + -5.0f * origin.y());
+			rotAngleLeft = -(rotAngleLeft - 10.0f * origin.y() / (ctrlPointNum - 2.0f));
+			rotAngleRight = (rotAngleRight + -10.0f * origin.y() / (ctrlPointNum - 2.0f));
 			float rotAngleMiddle = max(rotAngleLeft, rotAngleRight);
 			float vecLengthBack = (Vector3f(origin.x(), minY, scalpAABB.Min.z()) - origin).stableNorm();
-			vecLengthBack = 2.0f / 1.4f * vecLengthBack / (ctrlPointNum - 1.1f);
+			vecLengthBack = 2.0f / 1.4f * vecLengthBack / (ctrlPointNum - 1.0f - 0.1f * ctrlPointNum * ctrlPointNum * (minY + 0.5f));
 			vecLengthBack = (vecLength + vecLengthBack) / 2.0f;
 			//printf("%d %d %d\n", stepSize, stepSizeLeft, stepSizeRight);
 			for (int i = 0; i < stepSize; i++) {
@@ -414,7 +414,6 @@ namespace CForge {
 				//if (i < stepSizeLeft) rotAngleBack = rotAngleLeft + (rotAngleMiddle - rotAngleLeft) / float(stepSizeLeft) * float(i);
 				//else if (i > stepSizeLeft) rotAngleBack = rotAngleMiddle + (rotAngleRight - rotAngleMiddle) / float(stepSize - stepSizeLeft) * float(i - stepSizeLeft);
 				
-				printf("%.2f\n", rotAngleBack);
 				//creation loop per spline
 				for (float j = 1.0f; j < ctrlPointNum - 1.0f; j += 1.0f) {
 					//add currentVec to currentPoint
@@ -424,7 +423,7 @@ namespace CForge {
 					currentVec.normalize();
 					
 					Vector3f h = rotateVector3f(currentVec, currentRotVec, rotAngleBack);
-					if (i < int(stepSizeLeft / 2) || i > (stepSizeLeft + int(stepSizeRight / 2))) {
+					if (i < int(stepSizeLeft / 2) - 1 || i > (stepSizeLeft + int(stepSizeRight / 2) + 1)) {
 						//prevent resulting vector from pointing in opposite direction from before
 						//TODO improve by using angle instead of 1 total direction
 						//if ((h.z() > 0.0f) || (h.x() > 0.0f && i <= stepSizeLeft) || (h.x() < 0.0f && i > stepSizeLeft)) h = Vector3f(0.0f, h.y(), 0.0f);
@@ -573,6 +572,7 @@ namespace CForge {
 				//pMesh.clear();
 			}
 			Mat.TexAlbedo = "MyAssets/Hairgen/hair_texture2.webp";
+			//Mat.Color = Vector4f::Zero();
 			Sub.Material = 0;
 			pMesh->vertices(&Vertices);
 			pMesh->textureCoordinates(&UVWs);
@@ -886,7 +886,6 @@ namespace CForge {
 			//testing
 			
 			vector <int> startPoints;
-			Vector2f partingXY = Vector2f(0.2f, 0.6f);
 			vector<double> weights;
 			int stripNumber = 10;
 			for (int i = 0; i < Scalp.vertexCount(); i++) {
@@ -917,7 +916,6 @@ namespace CForge {
 				normalList.push_back(Scalp.normal(i));
 			}
 			//stop height for hair
-			float minY = -0.5f;
 			vector<Vector3f> sideVecs;
 			vector<vector<Vector3f>> controlPoints = setSplineControlpoints(&Scalp, vertexList, normalList, startPoints, partingXY, minY, &sideVecs);
 			vector<tinynurbs::Curve<float>> splineList = createSplines(&Scalp, controlPoints);
@@ -943,7 +941,6 @@ namespace CForge {
 			img.init(imgAlpha.width(), imgAlpha.height(), CForge::T2DImage<uint8_t>::COLORSPACE_RGBA, m_Data);
 			AssetIO::store("MyAssets/Hairgen/hair_texture.webp", &img);*/
 
-			float sampleRate = 10.0f;
 			createStrips(&pMesh, startPoints, vertexList, splineList, sideVecs, sampleRate);
 			//createStrips(pMeshList, startPoints, vertexList, splineList, sideVecs, sampleRate);
 
@@ -1116,8 +1113,16 @@ namespace CForge {
 		SGNGeometry m_TestStripsSGN;
 
 		static vector<Vector3f> vertexList;
-		//float sampleRate = 30.0f;
 
+
+		//parameters
+		//int stripNumber
+		float ctrlPointNum = 4.0f;		//scaling of curve
+		//int textureIndex				//usage of multiple textures
+		//Vector2f partingXY = Vector2f(0.2f, 0.6f);
+		Vector2f partingXY = Vector2f(0.2f, 0.6f);		//possible x: {0.0f, 0.1f, 0.2f, 0.3f} mirrored to negative
+		float minY = -0.5f; 
+		float sampleRate = 10.0f;		//scaling of strips
 	};//HairModelGen
 
 }//name space
