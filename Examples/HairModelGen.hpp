@@ -1,12 +1,12 @@
 /*****************************************************************************\
 *                                                                           *
-* File(s): HairModelGen.hpp                                            *
+* File(s): HairModelGen.hpp													*
 *                                                                           *
-* Content: Example scene that shows minimum setup with an OpenGL capable   *
-*          window, lighting setup, and a single moving object.              *
+* Content: Automated generation of hair strip models using parting position *
+*          and hair stop height as parameter.					            *
 *                                                                           *
 *                                                                           *
-* Author(s): Tom Uhlmann                                                    *
+* Author(s): Max Meyer	                                                    *
 *                                                                           *
 *                                                                           *
 * The file(s) mentioned above are provided as is under the terms of the     *
@@ -143,6 +143,7 @@ namespace CForge {
 		}
 		*/
 
+		//Usage of Dijkstra-Algorithm to find source points for hair strips
 		vector<int> getStartpoints(CForge::T3DMesh<float>* scalp, vector<Vector3f> &vertexList, vector<vector<int>> &adjacencyList, vector<double> weights, Vector2f partingXY, int pointNumber = 10) {
 			//TODO change Vector3f vertex representation to index rep.
 			vector<Vector3f> startPoints;
@@ -164,20 +165,7 @@ namespace CForge {
 				minZ = sampleVertices[0];
 				maxZ = sampleVertices[sampleVertices.size() - 1];
 			}
-			/*
-			if (sampleVertices.size() > 0) {
-				minZ = sampleVertices[0];
-				maxZ = sampleVertices[0];
 
-				for (auto i : sampleVertices) {
-					if (vertexList[i][2] < vertexList[minZ][2]) {
-						minZ = i;
-					}
-					else if (vertexList[i][2] > vertexList[maxZ][2]) {
-						maxZ = i;
-					}
-				}
-			}*/
 			vector<int> path;
 			if (minZ != maxZ) {
 				printf("%d %d\n", minZ, maxZ);
@@ -191,16 +179,11 @@ namespace CForge {
 				igl::dijkstra(maxZ, previous, path);
 
 				//TODO extract pointNumber of points from path with approx. even distance
-				//TODO solution to to abnormal path on icosphere
-				//TODO FaceMale solution
-				
-				//temporary solution to abnormal path on normal sphere
-				sort(path.begin(), path.end(), CForge::HairModelGen::compareVectorZ);
-				//path.erase(path.begin() + 5, path.end() - 5);
 			}
-
 			return path;
 		}
+
+		//hair strip source points with simple interval tests
 		vector<int> getTESTStartpoints(CForge::T3DMesh<float>* scalp, vector<Vector3f>& vertexList, Vector2f partingXY, int pointNumber = 10) {
 			vector<int> startPoints;
 			//get all Vertices with x ~ partingX and y >= partingY
@@ -237,18 +220,14 @@ namespace CForge {
 			Vector3f middleStartPoint = vertexList[startPoints[(int)startPoints.size() / 2]];
 			//approximate max length is double diagonal length between start and end point divided by sqrt(2) (3 controlpoints)
 			//pythagoras on isosceles triangle: sqrt(2)*a = c -> 2*a = 2*c/sqrt(2)
-			//additionally divided by number of desired controlpoints-1d
+			//additionally divided by number of desired controlpoints-1
 			float vecLength = (Vector3f(scalpAABB.Max.x(), minY, 0.0f) - middleStartPoint).stableNorm();
-			vecLength = 2.0f / 1.4f * vecLength / (ctrlPointNum - 1.0f - 0.1f*ctrlPointNum*ctrlPointNum*(minY + 0.6f));		//smaller value for controlPoint number so that it guarantees constant number in creation loop
-			//Vector3f TestRotVec = Vector3f::UnitZ();							//TODO
+			//concentrate controlpoints around the scalp for more precision, necessary for smaller number of points
+			vecLength = 2.0f / 1.4f * vecLength / (ctrlPointNum - 1.0f - 0.1f*ctrlPointNum*ctrlPointNum*(minY + 0.6f));		
 			
 			//left side
 			float initialAngleLeft = -85.0f;
 			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f) - 60.0f/(ctrlPointNum - 2.0f);
-			//if (parting.x() > 0) rotAngleLeft += parting.x() * (-300.0f);		//TODO adjust angle added according to position
-			//else if (parting.x() < 0) {
-				//rotAngleLeft += parting.x() * (50.0f);
-			//}
 			
 			for (int i = 0; i < startPoints.size(); i++) {
 				Vector3f currentPoint = vertexList[startPoints[i]];
@@ -268,12 +247,11 @@ namespace CForge {
 				else {
 					currentRotVec = currentPoint - vertexList[startPoints[i - 1]] + vertexList[startPoints[i + 1]] - currentPoint;
 				}
-				//currentRotVec = Vector3f(0.0f, currentRotVec.y(), currentRotVec.z());
 				currentRotVec.normalize();
 				sideVecs->push_back(currentRotVec);
 				//apply initial rotation to currentVec 
 				currentVec = rotateVector3f(currentVec, currentRotVec, initialAngleLeft);
-				//apply length to currentVec -> about 4(-6?) controlpoints
+				//apply length to currentVec
 				currentVec.normalize();
 				currentVec = vecLength * currentVec;
 				//angle adjustment to height
@@ -285,9 +263,8 @@ namespace CForge {
 					currentPoint += currentVec;
 					//push currentPoint to currentCtrlPts				
 					currentCtrlPts.push_back(currentPoint);
-					//rotate currentVec, rotation angle depends on horizontal position of parting on scalp
-					//currentRotVec += Vector3f::UnitZ();
-					//currentRotVec.normalize();
+					//rotate currentVec
+					
 					if (currentVec.x() > 0.0f) {
 						currentVec = rotateVector3f(currentVec, currentRotVec, rotAngleLeft + adjustAngleLeft);
 					}
@@ -295,11 +272,9 @@ namespace CForge {
 					//TODO improve by using angle instead of 1 total direction
 					if (currentVec.x() < 0.0f) currentVec = Vector3f(0.0f, currentVec.y(), currentVec.z());
 					//apply gravity and then length
-					//currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
 					currentVec += Vector3f(0.0f, 0.0f, -currentVec.z() / 2);		//TODO adjust gravity value
 					currentVec.normalize();
 					currentVec = vecLength * currentVec;
-					//TODO IMPROVEMENT make vecLength proportional to number of current ctrl point so that earlier length is shorter
 
 				}
 				//last controlpoint is at minY
@@ -312,10 +287,6 @@ namespace CForge {
 			//right side same as left side only diffrent rotation angles and negative x TODO
 			float initialAngleRight = 85.0f;
 			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f) + 60.0f / (ctrlPointNum - 2.0f);
-			//if (parting.x() < 0) rotAngleRight += parting.x() * (-300.0f);		//TODO adjust angle added according to position
-			//else if (parting.x() > 0) {
-				//rotAngleRight += parting.x() * (50.0f);
-			//}
 			
 			for (int i = 0; i < startPoints.size(); i++) {
 				Vector3f currentPoint = vertexList[startPoints[i]];
@@ -335,14 +306,12 @@ namespace CForge {
 				else {
 					currentRotVec = currentPoint - vertexList[startPoints[i - 1]] + vertexList[startPoints[i + 1]] - currentPoint;
 				}
-				//currentRotVec = Vector3f(0.0f, currentRotVec.y(), currentRotVec.z());
 				currentRotVec.normalize();
 				sideVecs->push_back(-currentRotVec);
 				//apply initial rotation to currentVec 
 				currentVec.normalize();
 				currentVec = rotateVector3f(currentVec, currentRotVec, initialAngleRight);
-				//h = CForgeMath::rotationMatrix((Quaternionf)AngleAxisf(CForgeMath::degToRad(initialAngleRight), TestRotVec)) * h;
-				//apply length to currentVec -> about 4(-6?) controlpoints
+				//apply length to currentVec
 				currentVec.normalize();
 				currentVec = vecLength * currentVec;
 				//angle adjustment to height
@@ -355,9 +324,7 @@ namespace CForge {
 					currentPoint += currentVec;
 					//push currentPoint to currentCtrlPts				
 					currentCtrlPts.push_back(currentPoint);
-					//rotate currentVec, rotation angle depends on horizontal position of parting on scalp
-					//currentRotVec += Vector3f::UnitZ();
-					//currentRotVec.normalize();
+					//rotate currentVec
 					if (currentVec.x() < 0.0f) {
 						currentVec = rotateVector3f(currentVec, currentRotVec, rotAngleRight + adjustAngleRight);
 					}
@@ -365,11 +332,9 @@ namespace CForge {
 					//TODO improve by using angle instead of 1 total direction
 					if (currentVec.x() > 0.0f) currentVec = Vector3f(0.0f, currentVec.y(), currentVec.z());
 					//apply gravity and then length
-					//currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
 					currentVec += Vector3f(0.0f, 0.0f, -currentVec.z()/2);		//TODO adjust gravity value
 					currentVec.normalize();
 					currentVec = vecLength * currentVec;
-					//TODO IMPROVEMENT make vecLength proportional to number of current ctrl point so that earlier length is shorter
 
 				}
 				//last controlpoint is at minY
@@ -397,7 +362,6 @@ namespace CForge {
 			float vecLengthBack = (Vector3f(origin.x(), minY, scalpAABB.Min.z()) - origin).stableNorm();
 			vecLengthBack = 2.0f / 1.4f * vecLengthBack / (ctrlPointNum - 1.0f - 0.1f * ctrlPointNum * ctrlPointNum * (minY + 0.5f));
 			vecLengthBack = (vecLength + vecLengthBack) / 2.0f;
-			//printf("%d %d %d\n", stepSize, stepSizeLeft, stepSizeRight);
 			for (int i = 0; i < stepSize; i++) {
 				vector<Vector3f> currentCtrlPts;
 				Vector3f currentPoint = origin;
@@ -408,11 +372,6 @@ namespace CForge {
 
 				//rotAngleBack interpolation between rotAngle Left-Middle or Right-Middle
 				float rotAngleBack = rotAngleMiddle;
-				//if (i <= stepSizeLeft) rotAngleBack = float(stepSizeLeft - i) / float(stepSizeLeft) * rotAngleLeft + float(i) / float(stepSizeLeft) * rotAngleMiddle;
-				//else if (i > stepSizeLeft) rotAngleBack = float(i - stepSizeLeft) / float(stepSizeRight) * rotAngleRight + float(stepSizeRight - (i - stepSizeLeft)) / float(stepSizeRight) * rotAngleMiddle;
-				
-				//if (i < stepSizeLeft) rotAngleBack = rotAngleLeft + (rotAngleMiddle - rotAngleLeft) / float(stepSizeLeft) * float(i);
-				//else if (i > stepSizeLeft) rotAngleBack = rotAngleMiddle + (rotAngleRight - rotAngleMiddle) / float(stepSize - stepSizeLeft) * float(i - stepSizeLeft);
 				
 				//creation loop per spline
 				for (float j = 1.0f; j < ctrlPointNum - 1.0f; j += 1.0f) {
@@ -426,7 +385,6 @@ namespace CForge {
 					if (i < int(stepSizeLeft / 2) - 1 || i > (stepSizeLeft + int(stepSizeRight / 2) + 1)) {
 						//prevent resulting vector from pointing in opposite direction from before
 						//TODO improve by using angle instead of 1 total direction
-						//if ((h.z() > 0.0f) || (h.x() > 0.0f && i <= stepSizeLeft) || (h.x() < 0.0f && i > stepSizeLeft)) h = Vector3f(0.0f, h.y(), 0.0f);
 						if (h.z() > 0.0f) h = Vector3f(h.x(), h.y(), 0.0f);
 						if ((h.x() < 0.0f && i < stepSizeLeft) || (h.x() > 0.0f && i > stepSizeLeft)) h = Vector3f(0.0f, h.y(), h.z());
 						currentVec = h;
@@ -441,13 +399,10 @@ namespace CForge {
 
 					}
 					//apply gravity and then length
-					//currentVec += Vector3f(0.0f, -0.05f, 0.0f);		//TODO adjust gravity value
 					currentVec = Vector3f(currentVec.x() / 2.0f, currentVec.y(), currentVec.z() / 2.0f);		//TODO adjust gravity value
 					if (currentVec.y() > 0.0f) currentVec = Vector3f(currentVec.x(), -4.0f * currentVec.y(), currentVec.z());
 					currentVec.normalize();
 					currentVec = vecLengthBack * currentVec;
-					//TODO IMPROVEMENT make vecLength proportional to number of current ctrl point so that earlier length is shorter
-
 				}
 				//last controlpoint is at minY
 				Vector3f lastPoint = Vector3f(currentPoint.x(), minY, currentPoint.z());
@@ -459,16 +414,6 @@ namespace CForge {
 			}
 			
 			return controlPoints;
-		}
-
-		void createFrontSplines() {
-			//TODO
-			return;
-		}
-
-		void createBackSplines() {
-			//TODO
-			return;
 		}
 		
 		vector<tinynurbs::Curve<float>> createSplines(CForge::T3DMesh<float>* scalp, vector<vector<Vector3f>> controlPoints) {
@@ -484,10 +429,12 @@ namespace CForge {
 				vector<float> knots;
 				spline.degree = glmCtrlPts.size() - 1;
 				
+				//bezier curve knots
 				for (int i = 0; i < spline.degree + 1; i++) knots.push_back(0.0f);
 				for (int i = 0; i < glmCtrlPts.size(); i++) knots.push_back(1.0f);
 
 				/*
+				//uniform spline knotvector
 				for (int i = 1; i < spline.degree + glmCtrlPts.size() + 1; i++) {
 					if (i <= spline.degree) knots.push_back(0.0f);
 					else if (i <= glmCtrlPts.size() + 1) knots.push_back(float(i - spline.degree));
@@ -502,7 +449,6 @@ namespace CForge {
 					knots[i] = knots[i] / h;
 				}*/
 
-				//knots = { 0.0f, 0.0f, 0.0f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f};
 				spline.knots = knots;
 				if (!tinynurbs::curveIsValid(spline)) {
 					printf("Spline not valid\n");
@@ -514,7 +460,6 @@ namespace CForge {
 
 		void createStrips(T3DMesh<float>* pMesh, vector<int> startPoints, vector<Vector3f> vertexList, vector<tinynurbs::Curve<float>> splines, vector<Vector3f> sideVecs, float sampleRate) {
 			 if (nullptr == pMesh) throw NullpointerExcept("pMesh");
-			//vector<T3DMesh<float>> pMeshes;
 			//strip width
 			float width = 0.0f;
 			float delta = 0.1f;
@@ -539,8 +484,6 @@ namespace CForge {
 			T3DMesh<float>::Face F;
 
 			for (int i = 0; i < splines.size(); i++) {
-				//T3DMesh<float> pMesh; pMesh.init();
-
 				// generate vertices
 				for (float j = 0.0f; j <= 1.0f; j += 1.0f / sampleRate) {
 					Vector3f v1 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) + width * sideVecs[i];
@@ -567,12 +510,9 @@ namespace CForge {
 						F.Vertices[1] = v3;
 						Sub.Faces.push_back(F);
 				}
-
-				//pMeshes.push_back(pMesh);
-				//pMesh.clear();
 			}
-			Mat.TexAlbedo = "MyAssets/Hairgen/hair_texture2.webp";
-			//Mat.Color = Vector4f::Zero();
+			Mat.TexAlbedo = "Assets/Hairgen/hair_texture2.webp";
+			//TODO IMPROVEMENT use different textures
 			Sub.Material = 0;
 			pMesh->vertices(&Vertices);
 			pMesh->textureCoordinates(&UVWs);
@@ -583,109 +523,8 @@ namespace CForge {
 
 			return;
 		}
-		/*
-		vector<StaticActor> createStrips(vector<int> startPoints, vector<Vector3f> vertexList, vector<tinynurbs::Curve<float>> splines, vector<Vector3f> sideVecs, float sampleRate) {
-			vector<StaticActor> pActors;
-			//strip width
-			float width = 0.0f;
-			float delta = 0.0f;
-			vector<Vector3f> startVertices;
-			for (int i = 0; i < startPoints.size(); i++) {
-				startVertices.push_back(vertexList[startPoints[i]]);
-			}
-			for (int i = 0; i < startVertices.size(); i++) {
-				float hWidth = 0.0f;
-				if (i == 0) hWidth = (startVertices[i + 1] - startVertices[i]).stableNorm();
-				else if (i == startVertices.size() - 1) hWidth = (startVertices[i] - startVertices[i - 1]).stableNorm();
-				else hWidth = ((startVertices[i] - startVertices[i - 1]) + (startVertices[i + 1] - startVertices[i])).stableNorm() / 2.0f;
-				if (hWidth > width) width = hWidth;
-			}
-			width += delta; width /= 2.0f;
 
-
-			for (int i = 0; i < splines.size(); i++) {
-				T3DMesh<float> pMesh;
-				StaticActor pActor;
-				createStrip(&pMesh, width, splines[i], sampleRate, sideVecs[i]);
-				pActor.init(&pMesh);
-				pActors.push_back(pActor);
-				//pMesh.clear();
-			}
-
-			return pActors;
-		}
-		void createStrip(T3DMesh<float>* pMesh, float width, tinynurbs::Curve<float> spline, float sampleRate, Vector3f sideVec) {
-			if (nullptr == pMesh) throw NullpointerExcept("pMesh");
-			pMesh->clear();
-			uint32_t pSampleRate = int(sampleRate);
-
-			std::vector<Vector3f> Vertices;
-			std::vector<Vector3f> UVWs;
-			T3DMesh<float>::Submesh Sub;
-			T3DMesh<float>::Material Mat;
-			T3DMesh<float>::Face F;
-
-			// generate vertices
-			for (float j = 0.0f; j <= 1.0f; j += 1.0f / sampleRate) {
-				Vector3f v1 = Vector3fFromGlmVec3(tinynurbs::curvePoint(spline, j)) + width * sideVec;
-				Vector3f v2 = Vector3fFromGlmVec3(tinynurbs::curvePoint(spline, j)) - width * sideVec;
-				Vertices.push_back(v1);
-				Vertices.push_back(v2);
-				Vector3f uvw1 = Vector3f(0.0f, 1.0f - j, 0.0f);
-				Vector3f uvw2 = Vector3f(1.0f, 1.0f - j, 0.0f);
-				UVWs.push_back(uvw1);
-				UVWs.push_back(uvw2);
-			}
-			// generate triangles
-			for (uint32_t j = 0; j < 2 * (pSampleRate - 1); j += 2) {
-				auto v0 = j;
-				auto v1 = j + 1;
-				auto v2 = j + 2;
-				auto v3 = j + 3;
-				F.Vertices[0] = v2;
-				F.Vertices[2] = v0;
-				F.Vertices[1] = v1;
-				Sub.Faces.push_back(F);
-				F.Vertices[0] = v2;
-				F.Vertices[2] = v1;
-				F.Vertices[1] = v3;
-				Sub.Faces.push_back(F);
-			}
-			Mat.Color = Vector4f::Ones();
-			Sub.Material = 0;
-			pMesh->vertices(&Vertices);
-			pMesh->textureCoordinates(&UVWs);
-			pMesh->addSubmesh(&Sub, true);
-			pMesh->addMaterial(&Mat, true);
-
-			return;
-		}
-		void TestStrips(SGNTransformation* headTransformSGN, vector<StaticActor>* testActors) {
-		//void TestStrips(SGNTransformation* headTransformSGN, T3DMesh<float>* strips, StaticActor* testActor) {
-			m_TestStripsGroupSGN.init(headTransformSGN);
-			
-			for (auto i : *testActors) {
-				// create the scene graph nodes
-				SGNGeometry* pGeomSGN = nullptr;
-				SGNTransformation* pTransformSGN = nullptr;
-
-				// initialize position and scaling
-				pTransformSGN = new SGNTransformation();
-				pTransformSGN->init(&m_TestStripsGroupSGN);
-
-				// initialize geometry
-				pGeomSGN = new SGNGeometry();
-				pGeomSGN->init(pTransformSGN, &i);
-
-				m_TestStripsTransformSGNs.push_back(pTransformSGN);
-				m_TestStripsSGNs.push_back(pGeomSGN);
-			}//for[stripNumber]
-
-			//m_TestStripsTransformSGN.init(headTransformSGN);
-			//testActor->init(strips);
-			//m_TestStripsSGN.init(&m_TestStripsTransformSGN, testActor);
-		}*/
-
+		//visualizing the components
 		void TestStartPoints(SGNTransformation* headTransformSGN, vector<int> startPoints, vector<Vector3f> vertexList, StaticActor* testActor) {
 			
 			m_TestStartPointsGroupSGN.init(headTransformSGN);
@@ -700,7 +539,6 @@ namespace CForge {
 				pTransformSGN->init(&m_TestStartPointsGroupSGN);
 
 				pTransformSGN->translation(vertexList[startPoints[i]]);
-				//pTransformSGN->translation(Vector3f(0.0f, 0.0f, 0.0f));
 				pTransformSGN->scale(Vector3f(0.04f, 0.04f, 0.04f));
 
 				// initialize geometry
@@ -768,32 +606,7 @@ namespace CForge {
 			return;
 		}
 
-		//void TestStrips(SGNTransformation* headTransformSGN, vector<T3DMesh<float>> strips, vector<StaticActor>* testActors) {
 		void TestStrips(SGNTransformation* headTransformSGN, T3DMesh<float>* strips, StaticActor* testActor) {
-			//m_TestStripsGroupSGN.init(headTransformSGN);
-			/*
-			for (auto i : strips) {
-				StaticActor pActor;
-				pActor.init(&i);
-				testActors->push_back(pActor);
-			}
-			for (auto i : *testActors) {
-				// create the scene graph nodes
-				SGNGeometry* pGeomSGN = nullptr;
-				SGNTransformation* pTransformSGN = nullptr;
-
-				// initialize position and scaling
-				pTransformSGN = new SGNTransformation();
-				pTransformSGN->init(&m_TestStripsGroupSGN);
-
-				// initialize geometry
-				pGeomSGN = new SGNGeometry();
-				pGeomSGN->init(pTransformSGN, &i);
-
-				m_TestStripsTransformSGNs.push_back(pTransformSGN);
-				m_TestStripsSGNs.push_back(pGeomSGN);
-			}//for[stripNumber]*/
-
 			m_TestStripsTransformSGN.init(headTransformSGN);
 			testActor->init(strips);
 			m_TestStripsSGN.init(&m_TestStripsTransformSGN, testActor);
@@ -824,17 +637,11 @@ namespace CForge {
 
 			initWindowAndRenderDevice();
 			initCameraAndLights();
+			srand(static_cast <unsigned> (time(0)));
 
 			// load skydome and a scalp
 			T3DMesh<float> M, Scalp, TestM;
 			
-			/*
-			SAssetIO::load("Assets/ExampleScenes/SimpleSkydome.glb", &M);
-			setMeshShader(&M, 0.8f, 0.04f);
-			M.computePerVertexNormals();
-			m_Skydome.init(&M);
-			M.clear();
-			*/
 			/// gather textures for the skyboxes
 			m_ClearSky.push_back("Assets/ExampleScenes/skybox/vz_clear_right.png");
 			m_ClearSky.push_back("Assets/ExampleScenes/skybox/vz_clear_left.png");
@@ -845,16 +652,16 @@ namespace CForge {
 
 			m_Skybox.init(m_ClearSky[0], m_ClearSky[1], m_ClearSky[2], m_ClearSky[3], m_ClearSky[4], m_ClearSky[5]);
 
-			SAssetIO::load("MyAssets/sphere.obj", &TestM);
+			SAssetIO::load("Assets/Hairgen/sphere.obj", &TestM);
 			setMeshShader(&TestM, 0.5f, 0.04f);
 			TestM.computePerVertexNormals();
-			//SAssetIO::load("MyAssets/icosphere.obj", &Scalp);
-			SAssetIO::load("MyAssets/MaleFace.obj", &Scalp);
+			//SAssetIO::load("Assets/Hairgen/icosphere.obj", &Scalp);
+			SAssetIO::load("Assets/Hairgen/MaleFace.obj", &Scalp);
 			setMeshShader(&Scalp, 0.5f, 0.04f);
 			Scalp.computePerVertexNormals();
 			m_Scalp.init(&Scalp);
 
-			//testing
+			//testing sphere to visualize components
 			//set Color for Mesh 
 			for (uint32_t i = 0; i < TestM.materialCount(); ++i) {
 				T3DMesh<float>::Material* pMat = TestM.getMaterial(i);
@@ -883,11 +690,11 @@ namespace CForge {
 			m_ScalpSGN.init(&m_ScalpTransformSGN, &m_Scalp);
 			m_ScalpSGN.scale(Vector3f(1.0f, 1.0f, 1.0f));
 
-			//testing
-			
+
+			//generating hair model
+			// start points
 			vector <int> startPoints;
 			vector<double> weights;
-			int stripNumber = 10;
 			for (int i = 0; i < Scalp.vertexCount(); i++) {
 				vertexList.push_back(Scalp.vertex(i));
 				//weights.push_back(1.0f);
@@ -906,59 +713,36 @@ namespace CForge {
 			}
 			vector<vector<int>> adjList;
 			igl::adjacency_list(faceListIndex, adjList);
-			//printf("%d, %d \n", Scalp.vertexCount(), adjList.size());
-			//printf("%d, %d \n", Scalp.vertexCount(), Scalp.normalCount());
+
+			//Dijkstra ver
 			//startPoints = getStartpoints(&Scalp, vertexList, adjList, weights, partingXY, stripNumber);
+
+			//interval ver
 			startPoints = getTESTStartpoints(&Scalp, vertexList, partingXY, stripNumber);
-			//printf("%d \n", startPoints.size());
+
+			// control points
 			vector <Vector3f> normalList;
 			for (int i = 0; i < Scalp.normalCount(); i++) {
 				normalList.push_back(Scalp.normal(i));
 			}
-			//stop height for hair
 			vector<Vector3f> sideVecs;
 			vector<vector<Vector3f>> controlPoints = setSplineControlpoints(&Scalp, vertexList, normalList, startPoints, partingXY, minY, &sideVecs);
+			// splines
 			vector<tinynurbs::Curve<float>> splineList = createSplines(&Scalp, controlPoints);
 			T3DMesh<float> pMesh;
-			//vector<T3DMesh<float>> pMeshes;
-			//vector<T3DMesh<float>*> pMeshList;
-			//for (int i = 0;
-
-			/*
-			T2DImage<uint8_t> imgC, imgAlpha;
-			AssetIO::load("MyAssets/Hairgen/straight_red_hair_texture.jpg", &imgC);
-			AssetIO::load("MyAssets/Hairgen/straight_red_hair_texture_alpha.png", &imgAlpha);
-			uint8_t* m_Data = imgAlpha.data();
-			for (int i = 0; i < imgC.height(); i++) {
-				for (int j = 0; j < imgC.width(); j++) {
-					uint8_t* pixel = imgC.pixel(j, i);
-					for (int k = 0; k < imgAlpha.componentsPerPixel()-1; k++) {
-						m_Data[i * imgAlpha.width() + j + k] = pixel[k];
-					}
-				}
-			}
-			T2DImage<uint8_t> img;
-			img.init(imgAlpha.width(), imgAlpha.height(), CForge::T2DImage<uint8_t>::COLORSPACE_RGBA, m_Data);
-			AssetIO::store("MyAssets/Hairgen/hair_texture.webp", &img);*/
-
+			// strips
 			createStrips(&pMesh, startPoints, vertexList, splineList, sideVecs, sampleRate);
-			//createStrips(pMeshList, startPoints, vertexList, splineList, sideVecs, sampleRate);
 
-			// Tests
-			//for (auto i : startPoints) {
-				//printf("%.2f %.2f %.2f \n", normalList[i].x(), normalList[i].y(), normalList[i].z());
-				//printf("%.2f %.2f %.2f \n", vertexList[i].x(), vertexList[i].y(), vertexList[i].z());
-			//}
+			//visualization
 			TestStartPoints(&m_HeadTransformSGN, startPoints, vertexList, &m_Test);
 			TestControlPoints(&m_HeadTransformSGN, controlPoints, &m_Test);
 			TestSplines(&m_HeadTransformSGN, splineList, &m_Test);
-			//PrimitiveShapeFactory::plane(&pMesh, Vector2f(10.0f, 10.0f), Vector2i(20, 20));
 			TestStrips(&m_HeadTransformSGN, &pMesh, &m_TestStrip);
 
+			//disabled to show one at a time
 			m_TestStartPointsGroupSGN.enable(false, false);
 			m_TestControlPointsGroupSGN.enable(false, false);
 			m_TestSplinesGroupSGN.enable(false, false);
-			//m_TestStripsGroupSGN.enable(false, false);
 			m_TestStripsTransformSGN.enable(false, false);
 
 			LineOfText* pKeybindings = new LineOfText();
@@ -969,6 +753,7 @@ namespace CForge {
 			pKeybindings->color(0.0f, 0.0f, 0.0f, 1.0f);
 			m_DrawHelpTexts = true;
 			gladLoadGL();
+
 			// stuff for performance monitoring
 			uint64_t LastFPSPrint = CForgeUtility::timestamp();
 			int32_t FPSCount = 0;
@@ -995,53 +780,38 @@ namespace CForge {
 			defaultCameraUpdate(&m_Cam, m_RenderWin.keyboard(), m_RenderWin.mouse());
 			Keyboard* pKeyboard = m_RenderWin.keyboard();
 
-
+			//enable component
 			if (pKeyboard->keyPressed(Keyboard::KEY_1, true)) {
 				m_TestStartPointsGroupSGN.enable(true, true);
 				m_TestControlPointsGroupSGN.enable(false, false);
 				m_TestSplinesGroupSGN.enable(false, false);
-				//m_TestStripsGroupSGN.enable(false, false);
 				m_TestStripsTransformSGN.enable(false, false);
 			}
 			if (pKeyboard->keyPressed(Keyboard::KEY_2, true)) {
 				m_TestStartPointsGroupSGN.enable(false, false);
 				m_TestControlPointsGroupSGN.enable(true, true);
 				m_TestSplinesGroupSGN.enable(false, false);
-				//m_TestStripsGroupSGN.enable(false, false);
 				m_TestStripsTransformSGN.enable(false, false);
 			}
 			if (pKeyboard->keyPressed(Keyboard::KEY_3, true)) {
 				m_TestStartPointsGroupSGN.enable(false, false);
 				m_TestControlPointsGroupSGN.enable(false, false);
 				m_TestSplinesGroupSGN.enable(true, true);
-				//m_TestStripsGroupSGN.enable(false, false);
 				m_TestStripsTransformSGN.enable(false, false);
 			}
 			if (pKeyboard->keyPressed(Keyboard::KEY_4, true)) {
 				m_TestStartPointsGroupSGN.enable(false, false);
 				m_TestControlPointsGroupSGN.enable(false, false);
 				m_TestSplinesGroupSGN.enable(false, false);
-				//m_TestStripsGroupSGN.enable(true, true);
 				m_TestStripsTransformSGN.enable(true, true);
 			}
 			if (pKeyboard->keyPressed(Keyboard::KEY_0, true)) {
 				m_TestStartPointsGroupSGN.enable(false, false);
 				m_TestControlPointsGroupSGN.enable(false, false);
 				m_TestSplinesGroupSGN.enable(false, false);
-				//m_TestStripsGroupSGN.enable(false, false);
 				m_TestStripsTransformSGN.enable(false, false);
 			}
-			/*
-			if (pKeyboard->keyPressed(Keyboard::KEY_UP, true)) {
-				if (sampleRate < 100.0f) {
-					sampleRate += 5.0f;
-					m_TestSplinesGroupSGN.clear()
-					TestSplines
-				}
-			}
-			if (pKeyboard->keyPressed(Keyboard::KEY_DOWN, true)) {
-				if (sampleRate > 10.0f) sampleRate -= 5.0f;
-			}*/
+			
 			m_RenderDev.activePass(RenderDevice::RENDERPASS_SHADOW, &m_Sun);
 			m_RenderDev.activeCamera(const_cast<VirtualCamera*>(m_Sun.camera()));
 			glDisable(GL_CULL_FACE);
@@ -1103,11 +873,6 @@ namespace CForge {
 		vector<SGNGeometry*> m_TestSplinesSGNs;
 		SGNTransformation m_TestSplinesGroupSGN;
 
-		//vector<StaticActor> m_StripList;
-		//vector<SGNTransformation*> m_TestStripsTransformSGNs;
-		//vector<SGNGeometry*> m_TestStripsSGNs;
-		//SGNTransformation m_TestStripsGroupSGN;
-
 		StaticActor m_TestStrip;
 		SGNTransformation m_TestStripsTransformSGN;
 		SGNGeometry m_TestStripsSGN;
@@ -1116,7 +881,7 @@ namespace CForge {
 
 
 		//parameters
-		//int stripNumber
+		int stripNumber = 10;			//not used currently
 		float ctrlPointNum = 4.0f;		//scaling of curve
 		//int textureIndex				//usage of multiple textures
 		//Vector2f partingXY = Vector2f(0.2f, 0.6f);
