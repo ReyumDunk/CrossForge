@@ -77,6 +77,11 @@ namespace CForge {
 			return h3;
 		}
 
+		bool randomBool()
+		{
+			return 0 + (rand() % (1 - 0 + 1)) == 1;
+		}
+
 		/* pmp usage
 		vector<Vector3f> getStartpoints(CForge::T3DMesh<float> *scalp, SurfaceMesh& surfaceScalp, Vector2f partingXY, int pointNumber = 10) {
 			vector<Vector3f> startPoints;
@@ -483,11 +488,18 @@ namespace CForge {
 			T3DMesh<float>::Material Mat;
 			T3DMesh<float>::Face F;
 
+			bool useWaves = randomBool();
 			for (int i = 0; i < splines.size(); i++) {
 				// generate vertices
+				float waveFactor = 0.0f;
 				for (float j = 0.0f; j <= 1.0f; j += 1.0f / sampleRate) {
-					Vector3f v1 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) + width * sideVecs[i];
-					Vector3f v2 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) - width * sideVecs[i];
+					if (useWaves) {
+						waveFactor += (2.0f * float(rand()) / float(RAND_MAX) - 1.0f) / 20.0f;
+						if (waveFactor < -0.1f) waveFactor = -0.05f;
+						else if (waveFactor > 0.1f) waveFactor = 0.05f;
+					}
+					Vector3f v1 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) + (waveFactor + width) * sideVecs[i];
+					Vector3f v2 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) + (waveFactor - width) * sideVecs[i];
 					Vertices.push_back(v1);
 					Vertices.push_back(v2);
 					Vector3f uvw1 = Vector3f(0.0f, 1.0f - j, 0.0f);
@@ -887,7 +899,7 @@ namespace CForge {
 		//Vector2f partingXY = Vector2f(0.2f, 0.6f);
 		Vector2f partingXY = Vector2f(0.2f, 0.6f);		//possible x: {0.0f, 0.1f, 0.2f, 0.3f} mirrored to negative
 		float minY = -0.5f; 
-		float sampleRate = 10.0f;		//scaling of strips
+		float sampleRate = 20.0f;		//scaling of strips
 	};//HairModelGen
 
 }//name space
