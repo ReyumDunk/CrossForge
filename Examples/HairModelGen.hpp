@@ -48,7 +48,7 @@ namespace CForge {
 			clear();
 		}//Destructor
 
-		static bool compareVectorZ(const int &v1, const int &v2) {
+		static bool compareVectorZ_I(const int &v1, const int &v2) {
 			return (vertexList[v1].z() < vertexList[v2].z());
 		}
 
@@ -80,6 +80,15 @@ namespace CForge {
 		bool randomBool()
 		{
 			return 0 + (rand() % (1 - 0 + 1)) == 1;
+		}
+
+		struct simpleVertex {
+			Vector3f pos;
+			Vector3f normal;
+		};
+
+		static bool compareVectorZ_simpleV(const simpleVertex& v1, const simpleVertex& v2) {
+			return (v1.pos.z() < v2.pos.z());
 		}
 
 		/* pmp usage
@@ -165,7 +174,7 @@ namespace CForge {
 			//get vertex with highest and lowest z each
 			//TODO Error when no or only 1 point(s) were sampled
 			int minZ, maxZ{};
-			sort(sampleVertices.begin(), sampleVertices.end(), CForge::HairModelGen::compareVectorZ);
+			sort(sampleVertices.begin(), sampleVertices.end(), CForge::HairModelGen::compareVectorZ_I);
 			if (sampleVertices.size() > 0) {
 				minZ = sampleVertices[0];
 				maxZ = sampleVertices[sampleVertices.size() - 1];
@@ -203,7 +212,7 @@ namespace CForge {
 			for (auto i : sampleVertices) {
 				startPoints.push_back(i);
 			}
-			sort(startPoints.begin(), startPoints.end(), CForge::HairModelGen::compareVectorZ);
+			sort(startPoints.begin(), startPoints.end(), CForge::HairModelGen::compareVectorZ_I);
 			//startPoints.erase(startPoints.begin() + 3, startPoints.end() - 3);
 
 			//prevent multiple vertices in same position
@@ -216,13 +225,46 @@ namespace CForge {
 			
 			return startPoints;
 		}
-		
-		vector<vector<Vector3f>> setSplineControlpoints(CForge::T3DMesh<float>* scalp, vector<Vector3f>& vertexList, vector<Vector3f>& normalList, vector<int> startPoints, Vector2f parting, float minY, vector<Vector3f>* sideVecs) {
+
+		vector<simpleVertex> buildStartpoints(vector<int>& startPoints_I, vector<Vector3f>& vertexList, vector<Vector3f>& normalList) {
+			vector<simpleVertex> startPoints;
+			for (auto i : startPoints_I) {
+				simpleVertex startPoint;
+				startPoint.pos = vertexList[i];
+				startPoint.normal = normalList[i];
+				startPoints.push_back(startPoint);
+			}
+			return startPoints;
+		}
+
+		//generate extra startpoints as interpolation between 2 adjacent existing ones
+		//	to factor correlated number of new points between every startpoint pair (factor = 2 -> double points -> 1 new point each)
+		vector<simpleVertex> generateExtraStartpointsF(vector<simpleVertex>& startPoints) {
+			vector<simpleVertex> updatedList;
+			for (auto i : startPoints) updatedList.push_back(i);
+			for (int i = 0; i < startPoints.size() - 1; i++) {
+				for (int j = 1; j < factor; j++) {
+					simpleVertex newPoint;
+					float p_t = float(j) / float(factor);
+					newPoint.pos = p_t * startPoints[i + 1].pos + (1.0f - p_t) * startPoints[i].pos;
+					newPoint.normal = p_t * startPoints[i + 1].normal + (1.0f - p_t) * startPoints[i].normal;
+					updatedList.push_back(newPoint);
+				}
+			}
+			sort(updatedList.begin(), updatedList.end(), CForge::HairModelGen::compareVectorZ_simpleV);
+			return updatedList;
+		}
+		//	only add for wider distances between pairs
+		vector<int> generateExtraStartpoints(vector<int>& startPoints) {
+
+		}
+
+		vector<vector<Vector3f>> setSplineControlpoints(CForge::T3DMesh<float>* scalp, vector<simpleVertex> startPoints, Vector2f parting, float minY, vector<Vector3f>* sideVecs) {
 			vector<vector<Vector3f>> controlPoints;
 			sideVecs->clear();
 			T3DMesh<float>::AABB scalpAABB = scalp->aabb();
 			
-			Vector3f middleStartPoint = vertexList[startPoints[(int)startPoints.size() / 2]];
+			Vector3f middleStartPoint = startPoints[(int)startPoints.size() / 2].pos;
 			//approximate max length is double diagonal length between start and end point divided by sqrt(2) (3 controlpoints)
 			//pythagoras on isosceles triangle: sqrt(2)*a = c -> 2*a = 2*c/sqrt(2)
 			//additionally divided by number of desired controlpoints-1
@@ -235,22 +277,22 @@ namespace CForge {
 			float rotAngleLeft = (-180.0f - initialAngleLeft) / (ctrlPointNum - 2.0f) - 60.0f/(ctrlPointNum - 2.0f);
 			
 			for (int i = 0; i < startPoints.size(); i++) {
-				Vector3f currentPoint = vertexList[startPoints[i]];
+				Vector3f currentPoint = startPoints[i].pos;
 				vector<Vector3f> currentCtrlPts;
 				currentCtrlPts.push_back(currentPoint);
 				//get normal from startPoints
-				Vector3f currentVec = normalList[startPoints[i]];
+				Vector3f currentVec = startPoints[i].normal;
 				//get initial rotation vector
 
 				Vector3f currentRotVec;
 				if (i == 0) {
-					currentRotVec = vertexList[startPoints[i + 1]] - currentPoint;
+					currentRotVec = startPoints[i + 1].pos - currentPoint;
 				}
 				else if (i == startPoints.size() - 1) {
-					currentRotVec = currentPoint - vertexList[startPoints[i - 1]];
+					currentRotVec = currentPoint - startPoints[i - 1].pos;
 				}
 				else {
-					currentRotVec = currentPoint - vertexList[startPoints[i - 1]] + vertexList[startPoints[i + 1]] - currentPoint;
+					currentRotVec = currentPoint - startPoints[i - 1].pos + startPoints[i + 1].pos - currentPoint;
 				}
 				currentRotVec.normalize();
 				sideVecs->push_back(currentRotVec);
@@ -294,22 +336,22 @@ namespace CForge {
 			float rotAngleRight = (180.0f - initialAngleRight) / (ctrlPointNum - 2.0f) + 60.0f / (ctrlPointNum - 2.0f);
 			
 			for (int i = 0; i < startPoints.size(); i++) {
-				Vector3f currentPoint = vertexList[startPoints[i]];
+				Vector3f currentPoint = startPoints[i].pos;
 				vector<Vector3f> currentCtrlPts;
 				currentCtrlPts.push_back(currentPoint);
 				//get normal from startPoints
-				Vector3f currentVec = normalList[startPoints[i]];
+				Vector3f currentVec = startPoints[i].normal;
 				//get initial rotation vector
 				
 				Vector3f currentRotVec;
 				if (i == 0) {
-					currentRotVec = vertexList[startPoints[i + 1]] - currentPoint;
+					currentRotVec = startPoints[i + 1].pos - currentPoint;
 				}
 				else if (i == startPoints.size() - 1) {
-					currentRotVec = currentPoint - vertexList[startPoints[i - 1]];
+					currentRotVec = currentPoint - startPoints[i - 1].pos;
 				}
 				else {
-					currentRotVec = currentPoint - vertexList[startPoints[i - 1]] + vertexList[startPoints[i + 1]] - currentPoint;
+					currentRotVec = currentPoint - startPoints[i - 1].pos + startPoints[i + 1].pos - currentPoint;
 				}
 				currentRotVec.normalize();
 				sideVecs->push_back(-currentRotVec);
@@ -352,9 +394,9 @@ namespace CForge {
 			// back
 			
 			int stepSize = int(startPoints.size() * 3 / 2);
-			Vector3f originNormal = normalList[startPoints[0]].normalized();
-			Vector3f origin = vertexList[startPoints[0]];
-			Vector3f currentRotVec = (vertexList[startPoints[1]] - origin).normalized();
+			Vector3f originNormal = startPoints[0].normal.normalized();
+			Vector3f origin = startPoints[0].pos;
+			Vector3f currentRotVec = (startPoints[1].pos - origin).normalized();
 			//TODO changing stepSize changes number of strips
 			int stepSizeLeft = int(stepSize / 2);
 			int stepSizeRight = stepSize - stepSizeLeft;
@@ -463,14 +505,13 @@ namespace CForge {
 			return splineList;
 		}
 
-		void createStrips(T3DMesh<float>* pMesh, vector<int> startPoints, vector<Vector3f> vertexList, vector<tinynurbs::Curve<float>> splines, vector<Vector3f> sideVecs, float sampleRate) {
+		void createStrips(T3DMesh<float>* pMesh, vector<simpleVertex> startPoints, vector<Vector3f> vertexList, vector<tinynurbs::Curve<float>> splines, vector<Vector3f> sideVecs, float sampleRate) {
 			 if (nullptr == pMesh) throw NullpointerExcept("pMesh");
 			//strip width
 			float width = 0.0f;
-			float delta = 0.1f;
 			vector<Vector3f> startVertices;
 			for (int i = 0; i < startPoints.size(); i++) {
-				startVertices.push_back(vertexList[startPoints[i]]);
+				startVertices.push_back(startPoints[i].pos);
 			}
 			for (int i = 0; i < startVertices.size(); i++) {
 				float hWidth = 0.0f;
@@ -479,7 +520,7 @@ namespace CForge {
 				else hWidth = ((startVertices[i] - startVertices[i - 1]) + (startVertices[i + 1] - startVertices[i])).stableNorm() / 2.0f;
 				if (hWidth > width) width = hWidth;
 			}
-			width += delta; width /= 2.0f;
+			width += widthDelta; width /= 2.0f;
 			uint32_t pSampleRate = int(sampleRate);
 
 			std::vector<Vector3f> Vertices;
@@ -495,8 +536,8 @@ namespace CForge {
 				for (float j = 0.0f; j <= 1.0f; j += 1.0f / sampleRate) {
 					if (useWaves) {
 						waveFactor += (2.0f * float(rand()) / float(RAND_MAX) - 1.0f) / 20.0f;
-						if (waveFactor < -0.1f) waveFactor = -0.05f;
-						else if (waveFactor > 0.1f) waveFactor = 0.05f;
+						if (waveFactor < -0.05f) waveFactor = -0.05f;
+						else if (waveFactor > 0.05f) waveFactor = 0.05f;
 					}
 					Vector3f v1 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) + (waveFactor + width) * sideVecs[i];
 					Vector3f v2 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) + (waveFactor - width) * sideVecs[i];
@@ -537,7 +578,7 @@ namespace CForge {
 		}
 
 		//visualizing the components
-		void TestStartPoints(SGNTransformation* headTransformSGN, vector<int> startPoints, vector<Vector3f> vertexList, StaticActor* testActor) {
+		void TestStartPoints(SGNTransformation* headTransformSGN, vector<simpleVertex> startPoints, StaticActor* testActor) {
 			
 			m_TestStartPointsGroupSGN.init(headTransformSGN);
 
@@ -550,7 +591,7 @@ namespace CForge {
 				pTransformSGN = new SGNTransformation();
 				pTransformSGN->init(&m_TestStartPointsGroupSGN);
 
-				pTransformSGN->translation(vertexList[startPoints[i]]);
+				pTransformSGN->translation(startPoints[i].pos);
 				pTransformSGN->scale(Vector3f(0.04f, 0.04f, 0.04f));
 
 				// initialize geometry
@@ -737,16 +778,18 @@ namespace CForge {
 			for (int i = 0; i < Scalp.normalCount(); i++) {
 				normalList.push_back(Scalp.normal(i));
 			}
+			vector<simpleVertex> startPointsList = buildStartpoints(startPoints, vertexList, normalList);
+			startPointsList = generateExtraStartpointsF(startPointsList);
 			vector<Vector3f> sideVecs;
-			vector<vector<Vector3f>> controlPoints = setSplineControlpoints(&Scalp, vertexList, normalList, startPoints, partingXY, minY, &sideVecs);
+			vector<vector<Vector3f>> controlPoints = setSplineControlpoints(&Scalp, startPointsList, partingXY, minY, &sideVecs);
 			// splines
 			vector<tinynurbs::Curve<float>> splineList = createSplines(&Scalp, controlPoints);
 			T3DMesh<float> pMesh;
 			// strips
-			createStrips(&pMesh, startPoints, vertexList, splineList, sideVecs, sampleRate);
+			createStrips(&pMesh, startPointsList, vertexList, splineList, sideVecs, sampleRate);
 
 			//visualization
-			TestStartPoints(&m_HeadTransformSGN, startPoints, vertexList, &m_Test);
+			TestStartPoints(&m_HeadTransformSGN, startPointsList, &m_Test);
 			TestControlPoints(&m_HeadTransformSGN, controlPoints, &m_Test);
 			TestSplines(&m_HeadTransformSGN, splineList, &m_Test);
 			TestStrips(&m_HeadTransformSGN, &pMesh, &m_TestStrip);
@@ -894,12 +937,14 @@ namespace CForge {
 
 		//parameters
 		int stripNumber = 10;			//not used currently
+		int factor = 2;					//increase number of startpoints by factor
 		float ctrlPointNum = 4.0f;		//scaling of curve
 		//int textureIndex				//usage of multiple textures
 		//Vector2f partingXY = Vector2f(0.2f, 0.6f);
 		Vector2f partingXY = Vector2f(0.2f, 0.6f);		//possible x: {0.0f, 0.1f, 0.2f, 0.3f} mirrored to negative
 		float minY = -0.5f; 
 		float sampleRate = 20.0f;		//scaling of strips
+		float widthDelta = 0.2f;		//added strip width on top of longest distance between startpoints
 	};//HairModelGen
 
 }//name space
