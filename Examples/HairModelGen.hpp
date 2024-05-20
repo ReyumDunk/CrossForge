@@ -541,9 +541,9 @@ namespace CForge {
 				float waveFactor = 0.0f;
 				for (float j = 0.0f; j <= 1.0f; j += 1.0f / sampleRate) {
 					if (useWaves) {
-						waveFactor += (2.0f * float(rand()) / float(RAND_MAX) - 1.0f) / 20.0f;
-						if (waveFactor < -0.05f) waveFactor = -0.05f;
-						else if (waveFactor > 0.05f) waveFactor = 0.05f;
+						waveFactor += (2.0f * float(rand()) / float(RAND_MAX) - 1.0f) / (1.0f / waveLimit);
+						if (waveFactor < -waveLimit) waveFactor = -waveLimit;
+						else if (waveFactor > waveLimit) waveFactor = waveLimit;
 					}
 					Vector3f v1 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) + (waveFactor + width) * sideVecs[i];
 					Vector3f v2 = Vector3fFromGlmVec3(tinynurbs::curvePoint(splines[i], j)) + (waveFactor - width) * sideVecs[i];
@@ -953,6 +953,7 @@ namespace CForge {
 		float minY = -0.5f; 
 		float sampleRate = 20.0f;		//scaling of strips
 		float widthDelta = 0.2f;		//added strip width on top of longest distance between startpoints
+		float waveLimit = 0.05f;
 	};//HairModelGen
 
 }//name space
