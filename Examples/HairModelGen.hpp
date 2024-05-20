@@ -48,9 +48,24 @@ namespace CForge {
 			clear();
 		}//Destructor
 
+		struct simpleVertex {
+			Vector3f pos;
+			Vector3f normal;
+		};
+
+		typedef enum haircolor {
+			BROWN = 0,
+			BLONDE,
+			RED
+		};
+
 		static bool compareVectorZ_I(const int &v1, const int &v2) {
 			return (vertexList[v1].z() < vertexList[v2].z());
 		}
+		static bool compareVectorZ_simpleV(const simpleVertex& v1, const simpleVertex& v2) {
+			return (v1.pos.z() < v2.pos.z());
+		}
+
 
 		bool VectorIsEqual(Vector3f v1, Vector3f v2) {
 			if (!v1.x() == v2.x()) return false;
@@ -80,15 +95,6 @@ namespace CForge {
 		bool randomBool()
 		{
 			return 0 + (rand() % (1 - 0 + 1)) == 1;
-		}
-
-		struct simpleVertex {
-			Vector3f pos;
-			Vector3f normal;
-		};
-
-		static bool compareVectorZ_simpleV(const simpleVertex& v1, const simpleVertex& v2) {
-			return (v1.pos.z() < v2.pos.z());
 		}
 
 		/* pmp usage
@@ -564,8 +570,10 @@ namespace CForge {
 						Sub.Faces.push_back(F);
 				}
 			}
-			Mat.TexAlbedo = "Assets/Hairgen/hair_texture2.webp";
-			//TODO IMPROVEMENT use different textures
+			//hair color
+			if (color == BROWN) Mat.TexAlbedo = "Assets/Hairgen/hair_texture2.webp";
+			else if (color == BLONDE) Mat.TexAlbedo = "Assets/Hairgen/hair_texture2blonde.webp";
+			else if (color == RED) Mat.TexAlbedo = "Assets/Hairgen/hair_texture2red.webp";
 			Sub.Material = 0;
 			pMesh->vertices(&Vertices);
 			pMesh->textureCoordinates(&UVWs);
@@ -939,7 +947,7 @@ namespace CForge {
 		int stripNumber = 10;			//not used currently
 		int factor = 2;					//increase number of startpoints by factor
 		float ctrlPointNum = 4.0f;		//scaling of curve
-		//int textureIndex				//usage of multiple textures
+		haircolor color = RED;		//usage of multiple textures
 		//Vector2f partingXY = Vector2f(0.2f, 0.6f);
 		Vector2f partingXY = Vector2f(0.2f, 0.6f);		//possible x: {0.0f, 0.1f, 0.2f, 0.3f} mirrored to negative
 		float minY = -0.5f; 
